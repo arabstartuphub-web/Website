@@ -13,7 +13,8 @@ router.post("/newsletter/subscribe", async (req, res) => {
     };
 
     if (!email || !email.includes("@")) {
-      return res.status(400).json({ error: "Invalid email address" });
+      res.status(400).json({ error: "Invalid email address" });
+      return;
     }
 
     const existing = await db
@@ -23,7 +24,8 @@ router.post("/newsletter/subscribe", async (req, res) => {
       .limit(1);
 
     if (existing.length > 0) {
-      return res.status(400).json({ error: "Email already subscribed" });
+      res.status(400).json({ error: "Email already subscribed" });
+      return;
     }
 
     await db.insert(newsletterTable).values({

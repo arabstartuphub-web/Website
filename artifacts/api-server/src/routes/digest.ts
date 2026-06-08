@@ -13,7 +13,8 @@ router.get("/digest/latest", async (req, res) => {
       .limit(1);
 
     if (!digest) {
-      return res.status(404).json({ error: "No digest available yet" });
+      res.status(404).json({ error: "No digest available yet" });
+      return;
     }
 
     // Get today's articles

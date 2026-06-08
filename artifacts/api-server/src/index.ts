@@ -1,5 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { startScheduler } from "./lib/scheduler";
+import { runDailyFetch } from "./lib/news-scraper";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +24,12 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Start the daily news scheduler
+  startScheduler();
+
+  // Run an immediate fetch on startup so news is fresh right away
+  runDailyFetch().catch((err) => {
+    logger.error({ err }, "Initial news fetch failed");
+  });
 });

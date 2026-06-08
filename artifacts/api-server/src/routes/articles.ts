@@ -89,7 +89,8 @@ router.get("/articles/:id", async (req, res) => {
       .where(eq(articlesTable.id, id))
       .limit(1);
     if (!article) {
-      return res.status(404).json({ error: "Article not found" });
+      res.status(404).json({ error: "Article not found" });
+      return;
     }
     // Increment view count
     await db

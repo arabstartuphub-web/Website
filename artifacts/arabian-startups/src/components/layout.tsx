@@ -105,8 +105,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <h4 className="font-serif text-lg font-semibold mb-4">Connect</h4>
             <ul className="space-y-2 text-secondary-foreground/70">
               <li><Link href="/about" className="hover:text-primary transition-colors">About Us</Link></li>
-              <li><a href="#" className="hover:text-primary transition-colors">Twitter</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">LinkedIn</a></li>
+              <li><a href="https://www.linkedin.com/company/arabian-startups-ecosystem" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">LinkedIn</a></li>
             </ul>
           </div>
         </div>
