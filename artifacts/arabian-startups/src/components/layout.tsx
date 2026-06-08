@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { Search, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
+import logo from "@/assets/logo.jpg";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -20,8 +21,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link href="/" className="font-serif text-2xl font-bold tracking-tight text-primary">
-              ASE.
+            <Link href="/" className="flex items-center">
+              <img src={logo} alt="Arabian Startups Ecosystem" className="h-10 w-auto rounded" />
             </Link>
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
               {navLinks.map((link) => (
@@ -85,8 +86,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <footer className="bg-secondary text-secondary-foreground mt-24 py-12">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-2">
-            <Link href="/" className="font-serif text-3xl font-bold tracking-tight text-primary mb-4 block">
-              Arabian Startups Ecosystem
+            <Link href="/" className="inline-block mb-4">
+              <img src={logo} alt="Arabian Startups Ecosystem" className="h-16 w-auto rounded" />
             </Link>
             <p className="text-secondary-foreground/70 max-w-md">
               The premier intelligence hub for founders, investors, and ecosystem builders in the Gulf region. Curated daily insights from Saudi Arabia, UAE, Kuwait, Qatar, Bahrain, and Oman.
