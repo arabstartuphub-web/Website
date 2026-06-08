@@ -1,22 +1,30 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Arabian Startups Ecosystem API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: articles
+    description: Startup news articles
+  - name: categories
+    description: News categories
+  - name: digest
+    description: Daily digest
+  - name: newsletter
+    description: Newsletter subscriptions
+  - name: stats
+    description: Ecosystem statistics
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,213 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /articles:
+    get:
+      operationId: listArticles
+      tags: [articles]
+      summary: List articles with optional filters
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: category
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: country
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: date
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Paginated list of articles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArticleList"
+
+  /articles/featured:
+    get:
+      operationId: getFeaturedArticles
+      tags: [articles]
+      summary: Get featured/hero articles
+      responses:
+        "200":
+          description: List of featured articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Article"
+
+  /articles/trending:
+    get:
+      operationId: getTrendingArticles
+      tags: [articles]
+      summary: Get trending articles
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        "200":
+          description: List of trending articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Article"
+
+  /articles/{id}:
+    get:
+      operationId: getArticle
+      tags: [articles]
+      summary: Get a single article
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Article details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List all article categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  /countries:
+    get:
+      operationId: listCountries
+      tags: [articles]
+      summary: List GCC countries with article counts
+      responses:
+        "200":
+          description: List of countries with article counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CountryStat"
+
+  /digest/latest:
+    get:
+      operationId: getLatestDigest
+      tags: [digest]
+      summary: Get the latest daily digest
+      responses:
+        "200":
+          description: Latest daily digest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyDigest"
+
+  /digest:
+    get:
+      operationId: listDigests
+      tags: [digest]
+      summary: List all daily digests
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Paginated list of digests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DigestList"
+
+  /stats:
+    get:
+      operationId: getEcosystemStats
+      tags: [stats]
+      summary: Get GCC ecosystem statistics
+      responses:
+        "200":
+          description: Ecosystem statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EcosystemStats"
+
+  /newsletter/subscribe:
+    post:
+      operationId: subscribeNewsletter
+      tags: [newsletter]
+      summary: Subscribe to the daily newsletter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewsletterSubscription"
+      responses:
+        "201":
+          description: Subscribed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResult"
+        "400":
+          description: Invalid email or already subscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +249,216 @@ components:
       required:
         - status
 
+    Article:
+      type: object
+      required:
+        - id
+        - title
+        - summary
+        - sourceUrl
+        - sourceName
+        - category
+        - country
+        - publishedAt
+        - isFeatured
+        - viewCount
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        summary:
+          type: string
+        content:
+          type: ["string", "null"]
+        sourceUrl:
+          type: string
+        sourceName:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        category:
+          type: string
+        country:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isFeatured:
+          type: boolean
+        viewCount:
+          type: integer
+        publishedAt:
+          type: string
+        createdAt:
+          type: string
+
+    ArticleList:
+      type: object
+      required:
+        - articles
+        - total
+        - page
+        - limit
+      properties:
+        articles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Article"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    Category:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - articleCount
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: ["string", "null"]
+        articleCount:
+          type: integer
+
+    CountryStat:
+      type: object
+      required:
+        - country
+        - code
+        - flag
+        - articleCount
+      properties:
+        country:
+          type: string
+        code:
+          type: string
+        flag:
+          type: string
+        articleCount:
+          type: integer
+
+    DailyDigest:
+      type: object
+      required:
+        - id
+        - date
+        - summary
+        - highlights
+        - articleCount
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
+        summary:
+          type: string
+        highlights:
+          type: array
+          items:
+            type: string
+        articleCount:
+          type: integer
+        articles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Article"
+
+    DigestList:
+      type: object
+      required:
+        - digests
+        - total
+        - page
+        - limit
+      properties:
+        digests:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyDigest"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    EcosystemStats:
+      type: object
+      required:
+        - totalArticles
+        - totalFundingMentions
+        - articlesByCountry
+        - articlesByCategory
+        - todayCount
+        - weekCount
+      properties:
+        totalArticles:
+          type: integer
+        totalFundingMentions:
+          type: integer
+        articlesByCountry:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountryStat"
+        articlesByCategory:
+          type: array
+          items:
+            type: object
+            required:
+              - category
+              - count
+            properties:
+              category:
+                type: string
+              count:
+                type: integer
+        todayCount:
+          type: integer
+        weekCount:
+          type: integer
+
+    NewsletterSubscription:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: ["string", "null"]
+        countries:
+          type: array
+          items:
+            type: string
+
+    SubscriptionResult:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string

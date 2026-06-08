@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Arabian Startups Ecosystem"
+version = "1.0.0"
+id = "artifacts/arabian-startups"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23664
+
+[services.development]
+run = "pnpm --filter @workspace/arabian-startups run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/arabian-startups", "run", "build" ]
+publicDir = "artifacts/arabian-startups/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23664"
+BASE_PATH = "/"
