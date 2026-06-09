@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Search, Menu, X } from "lucide-react";
+import { Search, Menu, X, Linkedin } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
 import logo from "@/assets/logo.jpg";
@@ -38,20 +38,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
               ))}
             </nav>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <Link href="/articles">
               <Button variant="ghost" size="icon" aria-label="Search">
                 <Search className="h-5 w-5" />
               </Button>
             </Link>
-            <Button variant="default" className="hidden md:flex font-serif tracking-wide rounded-none" asChild>
-              <Link href="/digest">Subscribe</Link>
+            {/* Subscribe → LinkedIn */}
+            <Button
+              variant="default"
+              className="hidden md:flex font-serif tracking-wide rounded-none items-center gap-2"
+              onClick={() => window.open("https://www.linkedin.com/company/arabian-startups-ecosystem", "_blank")}
+            >
+              <Linkedin className="h-4 w-4" />
+              Follow Us
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="md:hidden" 
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -75,6 +81,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {link.label}
               </Link>
             ))}
+            <button
+              className="text-left p-2 text-muted-foreground hover:text-primary flex items-center gap-2"
+              onClick={() => { window.open("https://www.linkedin.com/company/arabian-startups-ecosystem", "_blank"); setIsMobileMenuOpen(false); }}
+            >
+              <Linkedin className="h-4 w-4" /> Follow on LinkedIn
+            </button>
           </nav>
         </div>
       )}
@@ -105,7 +117,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <h4 className="font-serif text-lg font-semibold mb-4">Connect</h4>
             <ul className="space-y-2 text-secondary-foreground/70">
               <li><Link href="/about" className="hover:text-primary transition-colors">About Us</Link></li>
-              <li><a href="https://www.linkedin.com/company/arabian-startups-ecosystem" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">LinkedIn</a></li>
+              <li>
+                <a href="https://www.linkedin.com/company/arabian-startups-ecosystem" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors flex items-center gap-2">
+                  <Linkedin className="h-4 w-4" /> LinkedIn
+                </a>
+              </li>
             </ul>
           </div>
         </div>
