@@ -18,7 +18,7 @@
    - **Runtime**: `Node`
    - **Build Command**:
      ```bash
-     corepack enable && pnpm install && pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run build
+     npx pnpm@latest install && npx pnpm@latest --filter @workspace/db run push && npx pnpm@latest --filter @workspace/api-server run build
      ```
    - **Start Command**:
      ```bash
@@ -42,7 +42,7 @@
    - **Name**: `arabian-startups-web`
    - **Build Command**:
      ```bash
-     corepack enable && pnpm install && VITE_API_URL=https://arabian-startups-api.onrender.com/api BASE_PATH=/ PORT=3000 pnpm --filter @workspace/arabian-startups run build
+     npx pnpm@latest install && VITE_API_URL=https://arabian-startups-api.onrender.com/api BASE_PATH=/ PORT=3000 npx pnpm@latest --filter @workspace/arabian-startups run build
      ```
    - **Publish Directory**: `artifacts/arabian-startups/dist/public`
 4. Set Environment Variables:
