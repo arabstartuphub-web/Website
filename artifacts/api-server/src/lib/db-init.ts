@@ -2,6 +2,10 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { runDailyFetch } from "./news-scraper";
+import { articlesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
 const DEFAULT_CATEGORIES = [
   { name: "Funding", slug: "funding", description: "Venture capital, seed rounds, and investment news", articleCount: 0 },
@@ -15,16 +19,80 @@ const DEFAULT_CATEGORIES = [
   { name: "Incubators & Accelerators", slug: "incubators-accelerators", description: "News from GCC incubators, accelerators, startup studios, and entrepreneurship programs", articleCount: 0 },
 ];
 
+interface SeedArticle {
+  title: string;
+  summary: string;
+  sourceUrl: string;
+  sourceName: string;
+  category: string;
+  country: string;
+  tags: string[];
+  isFeatured: boolean;
+  publishedAt: string;
+}
+
+function loadSeedArticles(): SeedArticle[] {
+  try {
+    const seedPath = resolve(import.meta.dirname, "../seed/articles.json");
+    const raw = readFileSync(seedPath, "utf-8");
+    const json = JSON.parse(raw);
+    if (Array.isArray(json)) return json;
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+async function seedArticlesFromFile(): Promise<number> {
+  const seedArticles = loadSeedArticles();
+  if (seedArticles.length === 0) {
+    logger.info("No seed articles found in file");
+    return 0;
+  }
+
+  let inserted = 0;
+  for (const article of seedArticles) {
+    try {
+      const existing = await db
+        .select({ id: articlesTable.id })
+        .from(articlesTable)
+        .where(eq(articlesTable.sourceUrl, article.sourceUrl))
+        .limit(1);
+
+      if (existing.length > 0) continue;
+
+      await db.insert(articlesTable).values({
+        title: article.title.slice(0, 500),
+        summary: (article.summary || article.title).slice(0, 1000),
+        sourceUrl: article.sourceUrl,
+        sourceName: article.sourceName,
+        category: article.category,
+        country: article.country,
+        tags: article.tags || [],
+        isFeatured: article.isFeatured ?? false,
+        viewCount: 0,
+        publishedAt: new Date(article.publishedAt),
+      });
+      inserted++;
+    } catch (err) {
+      logger.warn({ err, title: article.title }, "Failed to insert seed article");
+    }
+  }
+
+  logger.info({ inserted, total: seedArticles.length }, "Seeded articles from file");
+  return inserted;
+}
+
 /**
  * Initialize the database:
- * 1. Ensure tables exist (if they don't, the drizzle push will be done via the build command)
+ * 1. Ensure tables exist
  * 2. Seed default categories if none exist
- * 3. Run the daily news fetch to populate articles
+ * 3. Seed articles from seed file (or fetch via RSS as fallback)
  */
 export async function initializeDatabase(): Promise<{ categories: number; articles: number }> {
   logger.info("Initializing database...");
 
-  // Check if categories table exists by trying to count
+  // Check if categories table exists
   let hasCategories = false;
   try {
     const count = await db.execute(sql`SELECT COUNT(*) FROM categories`);
@@ -38,7 +106,6 @@ export async function initializeDatabase(): Promise<{ categories: number; articl
   let insertedCategories = 0;
 
   if (!hasCategories) {
-    // Seed categories
     for (const cat of DEFAULT_CATEGORIES) {
       try {
         await db.execute(sql`
@@ -56,24 +123,30 @@ export async function initializeDatabase(): Promise<{ categories: number; articl
     logger.info("Categories already exist, skipping seed");
   }
 
-  // Run news fetch to populate articles
+  // Populate articles
   let articlesCount = 0;
   try {
-    // First, check if we already have articles
     const articlesResult = await db.execute(sql`SELECT COUNT(*) FROM articles`);
     const existingArticles = articlesResult?.[0]?.count ?? 0;
 
     if (existingArticles < 10) {
-      logger.info("Running initial news fetch to populate articles");
-      await runDailyFetch();
-      const newCount = await db.execute(sql`SELECT COUNT(*) FROM articles`);
-      articlesCount = newCount?.[0]?.count ?? 0;
+      logger.info("Database has fewer than 10 articles — seeding from file");
+      const seeded = await seedArticlesFromFile();
+      if (seeded > 0) {
+        const newCount = await db.execute(sql`SELECT COUNT(*) FROM articles`);
+        articlesCount = newCount?.[0]?.count ?? 0;
+      } else {
+        logger.info("No seed file available — trying RSS fetch as fallback");
+        await runDailyFetch();
+        const newCount = await db.execute(sql`SELECT COUNT(*) FROM articles`);
+        articlesCount = newCount?.[0]?.count ?? 0;
+      }
     } else {
       articlesCount = existingArticles;
       logger.info({ articlesCount }, "Articles already populated");
     }
   } catch (err) {
-    logger.error({ err }, "Failed to run initial news fetch");
+    logger.error({ err }, "Failed to populate articles");
   }
 
   return { categories: insertedCategories, articles: articlesCount };
