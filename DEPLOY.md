@@ -18,7 +18,7 @@
    - **Runtime**: `Node`
    - **Build Command**:
      ```bash
-     npm install -g pnpm && pnpm install && pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run build
+     corepack enable && pnpm install && pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run build
      ```
    - **Start Command**:
      ```bash
@@ -42,7 +42,7 @@
    - **Name**: `arabian-startups-web`
    - **Build Command**:
      ```bash
-     npm install -g pnpm && pnpm install && VITE_API_URL=https://arabian-startups-api.onrender.com/api BASE_PATH=/ PORT=3000 pnpm --filter @workspace/arabian-startups run build
+     corepack enable && pnpm install && VITE_API_URL=https://arabian-startups-api.onrender.com/api BASE_PATH=/ PORT=3000 pnpm --filter @workspace/arabian-startups run build
      ```
    - **Publish Directory**: `artifacts/arabian-startups/dist/public`
 4. Set Environment Variables:
@@ -99,6 +99,7 @@ Free Render web services **spin down after 15 minutes** of inactivity.
 - Check logs in the API service → **Logs** tab
 - Make sure `DATABASE_URL` is correct and the Neon database is active
 - Verify `pnpm install` succeeded in the build
+- **If you see `EROFS: read-only file system`**: Change `npm install -g pnpm` to `corepack enable` in the build command
 
 **If the frontend shows no data:**
 - Check browser console (F12) for CORS errors

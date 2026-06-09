@@ -19,7 +19,7 @@
 # === SERVICE 1: API Server (Node.js) ===
 # Render service type: Web Service
 # Runtime: Node
-# Build Command: npm install -g pnpm && pnpm install && pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run build
+# Build Command: corepack enable && pnpm install && pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run build
 # Start Command: node artifacts/api-server/dist/index.mjs
 # Health Check Path: /api/healthz
 # Environment Variables:
@@ -30,7 +30,7 @@
 
 # === SERVICE 2: Frontend (Static Site) ===
 # Render service type: Static Site
-# Build Command: npm install -g pnpm && pnpm install && VITE_API_URL=https://arabian-startups-api.onrender.com/api BASE_PATH=/ PORT=3000 pnpm --filter @workspace/arabian-startups run build
+# Build Command: corepack enable && pnpm install && VITE_API_URL=https://arabian-startups-api.onrender.com/api BASE_PATH=/ PORT=3000 pnpm --filter @workspace/arabian-startups run build
 # Publish directory: artifacts/arabian-startups/dist/public
 # Environment Variables:
 #   NODE_ENV = production
