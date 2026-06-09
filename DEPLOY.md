@@ -99,7 +99,7 @@ Free Render web services **spin down after 15 minutes** of inactivity.
 - Check logs in the API service → **Logs** tab
 - Make sure `DATABASE_URL` is correct and the Neon database is active
 - Verify `pnpm install` succeeded in the build
-- **If you see `EROFS: read-only file system`**: Change `npm install -g pnpm` to `corepack enable` in the build command
+- **If you see `EROFS: read-only file system`**: Make sure the build command uses `npx pnpm@latest` instead of `npm install -g pnpm` or `corepack enable`
 
 **If the frontend shows no data:**
 - Check browser console (F12) for CORS errors
@@ -109,3 +109,12 @@ Free Render web services **spin down after 15 minutes** of inactivity.
 **If the news scraper doesn't fetch:**
 - The scraper runs on server startup. Free Render services spin down, so it won't run unless the service is kept warm.
 - Many RSS feeds block scrapers (403/404) — this is handled gracefully; only working feeds contribute articles.
+- **To manually trigger the database init and news fetch** (no shell needed on free tier):
+  1. Visit `https://your-api-url.onrender.com/api/init` in your browser to check status
+  2. Send a POST request to `https://your-api-url.onrender.com/api/init` using curl, Postman, or your browser's developer console:
+     ```javascript
+     fetch('https://your-api-url.onrender.com/api/init', { method: 'POST' })
+       .then(r => r.json())
+       .then(console.log)
+     ```
+  3. The server will auto-initialize the database and run the news fetch on the next startup.

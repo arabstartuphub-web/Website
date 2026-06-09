@@ -5,6 +5,7 @@ import categoriesRouter from "./categories";
 import digestRouter from "./digest";
 import statsRouter from "./stats";
 import newsletterRouter from "./newsletter";
+import initRouter from "./init";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(categoriesRouter);
 router.use(digestRouter);
 router.use(statsRouter);
 router.use(newsletterRouter);
+router.use(initRouter);
 
 export default router;
