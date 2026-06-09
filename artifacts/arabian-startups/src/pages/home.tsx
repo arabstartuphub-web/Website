@@ -8,6 +8,24 @@ import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 
+// All 6 GCC countries with flags
+const GCC_COUNTRIES: Record<string, { flag: string; name: string }> = {
+  SA: { flag: "🇸🇦", name: "Saudi Arabia" },
+  AE: { flag: "🇦🇪", name: "UAE" },
+  KW: { flag: "🇰🇼", name: "Kuwait" },
+  QA: { flag: "🇶🇦", name: "Qatar" },
+  BH: { flag: "🇧🇭", name: "Bahrain" },
+  OM: { flag: "🇴🇲", name: "Oman" },
+};
+
+// Category sections for homepage feed (like menastartupdigest.com)
+const FEED_SECTIONS = [
+  { category: "Funding",                  label: "Latest Funding Rounds",      emoji: "💰" },
+  { category: "Incubators & Accelerators",label: "Programs & Accelerators",    emoji: "🚀" },
+  { category: "Ecosystem",                label: "Ecosystem Updates",          emoji: "🌱" },
+  { category: "Technology",               label: "Tech & Innovation",          emoji: "⚡" },
+];
+
 export default function Home() {
   const { data: featured, isLoading: featuredLoading } = useGetFeaturedArticles();
   const { data: trending, isLoading: trendingLoading } = useGetTrendingArticles({ limit: 5 });
@@ -15,21 +33,22 @@ export default function Home() {
   const { data: stats, isLoading: statsLoading } = useGetEcosystemStats();
   const { data: digest, isLoading: digestLoading } = useGetLatestDigest();
 
-  const getFlag = (code: string) => {
-    const flags: Record<string, string> = {
-      SA: "🇸🇦",
-      AE: "🇦🇪",
-      KW: "🇰🇼",
-      QA: "🇶🇦",
-      BH: "🇧🇭",
-      OM: "🇴🇲"
-    };
-    return flags[code] || code;
+  // Per-category feeds
+  const { data: fundingArticles }     = useListArticles({ limit: 4, category: "Funding" });
+  const { data: programArticles }     = useListArticles({ limit: 4, category: "Incubators & Accelerators" });
+  const { data: ecosystemArticles }   = useListArticles({ limit: 4, category: "Ecosystem" });
+  const { data: techArticles }        = useListArticles({ limit: 4, category: "Technology" });
+
+  const sectionData: Record<string, typeof latestArticles> = {
+    "Funding": fundingArticles,
+    "Incubators & Accelerators": programArticles,
+    "Ecosystem": ecosystemArticles,
+    "Technology": techArticles,
   };
 
   return (
     <Layout>
-      {/* Header Date & Stats Bar */}
+      {/* Header Date & Stats Bar — all 6 GCC countries */}
       <div className="border-b border-border bg-card/50">
         <div className="container mx-auto px-4 py-3 flex flex-wrap justify-between items-center text-xs font-mono uppercase tracking-widest text-muted-foreground gap-4">
           <div className="flex items-center gap-4">
@@ -37,13 +56,21 @@ export default function Home() {
             <span className="hidden md:inline">Volume I, Issue {stats?.weekCount || "..."}</span>
           </div>
           {stats ? (
-            <div className="flex gap-4 md:gap-8 overflow-x-auto">
-              <span><strong className="text-foreground">{stats.todayCount}</strong> Updates Today</span>
-              <span className="hidden sm:inline"><strong className="text-foreground">{stats.totalFundingMentions}</strong> Funding Rounds</span>
-              <div className="flex gap-2">
-                {stats.articlesByCountry.slice(0, 4).map(c => (
-                  <span key={c.code} title={c.country}>{getFlag(c.code)} {c.articleCount}</span>
-                ))}
+            <div className="flex gap-3 md:gap-6 overflow-x-auto">
+              <span><strong className="text-foreground">{stats.todayCount}</strong> Today</span>
+              <span className="hidden sm:inline"><strong className="text-foreground">{stats.totalFundingMentions}</strong> Funding</span>
+              {/* Show ALL 6 GCC countries, filling in 0 for missing ones */}
+              <div className="flex gap-3">
+                {Object.entries(GCC_COUNTRIES).map(([code, meta]) => {
+                  const found = stats.articlesByCountry.find(c => c.code === code);
+                  return (
+                    <Link key={code} href={`/articles?country=${code}`} title={meta.name}>
+                      <span className="hover:text-foreground transition-colors cursor-pointer">
+                        {meta.flag} <strong className="text-foreground">{found?.articleCount ?? 0}</strong>
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           ) : (
@@ -53,10 +80,10 @@ export default function Home() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        
+
         {/* Top Section: Featured + Digest/Trending */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-16">
-          
+
           {/* Main Featured */}
           <div className="lg:col-span-8">
             <div className="mb-6 flex items-center justify-between border-b-2 border-foreground pb-2">
@@ -117,20 +144,19 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Newsletter CTA */}
+        {/* LinkedIn CTA */}
         <div className="mb-16">
           <NewsletterCTA />
         </div>
 
         {/* Latest News Feed */}
-        <div className="mb-12">
+        <div className="mb-16">
           <div className="mb-8 flex items-end justify-between border-b-2 border-foreground pb-2">
             <h2 className="font-serif text-2xl font-bold uppercase tracking-tight">Latest Intelligence</h2>
             <Link href="/articles" className="text-sm font-mono font-bold text-primary hover:underline uppercase tracking-wider">
               View All →
             </Link>
           </div>
-          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {latestLoading ? (
               Array(6).fill(0).map((_, i) => <Skeleton key={i} className="w-full h-80" />)
@@ -141,6 +167,60 @@ export default function Home() {
             ) : null}
           </div>
         </div>
+
+        {/* Category Feed Sections — like menastartupdigest.com */}
+        {FEED_SECTIONS.map((section, si) => {
+          const sectionArticles = sectionData[section.category]?.articles;
+          if (!sectionArticles || sectionArticles.length === 0) return null;
+          return (
+            <motion.div
+              key={section.category}
+              className="mb-16"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: si * 0.1 }}
+            >
+              <div className="mb-8 flex items-end justify-between border-b-2 border-foreground pb-2">
+                <h2 className="font-serif text-2xl font-bold uppercase tracking-tight">
+                  <span className="mr-2">{section.emoji}</span>{section.label}
+                </h2>
+                <Link
+                  href={`/articles?category=${encodeURIComponent(section.category)}`}
+                  className="text-sm font-mono font-bold text-primary hover:underline uppercase tracking-wider"
+                >
+                  View All →
+                </Link>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {sectionArticles.map((article, i) => (
+                  <ArticleCard key={article.id} article={article} index={i} />
+                ))}
+              </div>
+            </motion.div>
+          );
+        })}
+
+        {/* Country Sections — per GCC country like menastartupdigest.com */}
+        <div className="mb-16">
+          <div className="mb-8 border-b-2 border-foreground pb-2">
+            <h2 className="font-serif text-2xl font-bold uppercase tracking-tight">Browse by Country</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {Object.entries(GCC_COUNTRIES).map(([code, meta]) => {
+              const found = stats?.articlesByCountry.find(c => c.code === code);
+              return (
+                <Link key={code} href={`/articles?country=${code}`}>
+                  <div className="border border-border bg-card p-4 text-center hover:border-primary hover:bg-primary/5 transition-all group cursor-pointer">
+                    <div className="text-3xl mb-2">{meta.flag}</div>
+                    <div className="font-serif font-bold text-xs uppercase tracking-wide group-hover:text-primary transition-colors">{meta.name}</div>
+                    <div className="text-xs text-muted-foreground font-mono mt-1">{found?.articleCount ?? 0} updates</div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
       </div>
     </Layout>
   );
