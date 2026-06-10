@@ -3,22 +3,12 @@ import { ArticleCard } from "@/components/article-card";
 import { useListArticles, useListCategories, useListCountries } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useSearch, useLocation } from "wouter";
 
-// Read filters directly from current URL — called once on mount and whenever URL changes
-function readFiltersFromURL() {
-  const params = new URLSearchParams(window.location.search);
-  return {
-    category: params.get("category") || "all",
-    country:  params.get("country")  || "all",
-    search:   params.get("search")   || "",
-  };
-}
-
-// Active filter pill
 function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
     <span className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 text-xs font-mono px-3 py-1 uppercase tracking-wider">
@@ -29,93 +19,79 @@ function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }
 }
 
 export default function Articles() {
-  const initial = readFiltersFromURL();
+  // useSearch() from wouter v3 — re-renders automatically whenever the URL
+  // query string changes, including when <Link> navigates here from categories page
+  const searchString = useSearch();
+  const [, setLocation] = useLocation();
 
-  const [search,          setSearch]          = useState(initial.search);
-  const [debouncedSearch, setDebouncedSearch] = useState(initial.search);
-  const [category,        setCategory]        = useState(initial.category);
-  const [country,         setCountry]         = useState(initial.country);
-  const [page,            setPage]            = useState(1);
+  const params     = new URLSearchParams(searchString);
+  const urlCategory = params.get("category") || "all";
+  const urlCountry  = params.get("country")  || "all";
+  const urlSearch   = params.get("search")   || "";
 
-  // Track whether a URL change came from US (pushing) or from the browser (back/forward)
-  const isPushingRef = useRef(false);
+  // Local state only for the search input typing (debounce)
+  const [searchInput,    setSearchInput]    = useState(urlSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(urlSearch);
+  const [page, setPage] = useState(1);
 
-  // Sync state → URL when user changes a filter (don't re-read URL in this case)
-  function pushURL(cat: string, cou: string, srch: string) {
-    const params = new URLSearchParams();
-    if (cat  !== "all") params.set("category", cat);
-    if (cou  !== "all") params.set("country",  cou);
-    if (srch)           params.set("search",   srch);
-    const qs = params.toString();
-    const next = qs ? `/articles?${qs}` : "/articles";
-    isPushingRef.current = true;
-    window.history.pushState({}, "", next);
-    // reset flag after tick
-    setTimeout(() => { isPushingRef.current = false; }, 0);
+  // When URL params change (e.g. user navigates back/forward or clicks a new category card),
+  // sync the search input and reset page
+  useEffect(() => {
+    setSearchInput(urlSearch);
+    setDebouncedSearch(urlSearch);
+    setPage(1);
+  }, [searchString]); // re-runs every time the URL search string changes
+
+  // Push new filter values into the URL — wouter's useSearch() will pick it up automatically
+  function updateURL(category: string, country: string, search: string) {
+    const p = new URLSearchParams();
+    if (category !== "all") p.set("category", category);
+    if (country  !== "all") p.set("country",  country);
+    if (search)             p.set("search",   search);
+    const qs = p.toString();
+    setLocation(qs ? `/articles?${qs}` : "/articles");
   }
 
-  // Listen for back/forward navigation (popstate) → sync URL → state
-  useEffect(() => {
-    function onPop() {
-      if (isPushingRef.current) return;
-      const f = readFiltersFromURL();
-      setCategory(f.category);
-      setCountry(f.country);
-      setSearch(f.search);
-      setDebouncedSearch(f.search);
-      setPage(1);
-    }
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  // Handlers — update state AND push URL atomically
   function handleCategoryChange(v: string) {
-    setCategory(v);
     setPage(1);
-    pushURL(v, country, debouncedSearch);
+    updateURL(v, urlCountry, debouncedSearch);
   }
 
   function handleCountryChange(v: string) {
-    setCountry(v);
     setPage(1);
-    pushURL(category, v, debouncedSearch);
+    updateURL(urlCategory, v, debouncedSearch);
   }
 
-  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleSearchInput(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
-    setSearch(val);
-    clearTimeout((handleSearchChange as any)._t);
-    (handleSearchChange as any)._t = setTimeout(() => {
+    setSearchInput(val);
+    clearTimeout((handleSearchInput as any)._t);
+    (handleSearchInput as any)._t = setTimeout(() => {
       setDebouncedSearch(val);
       setPage(1);
-      pushURL(category, country, val);
+      updateURL(urlCategory, urlCountry, val);
     }, 500);
   }
 
   function clearAll() {
-    setSearch(""); setDebouncedSearch("");
-    setCategory("all"); setCountry("all");
+    setSearchInput("");
+    setDebouncedSearch("");
     setPage(1);
-    pushURL("all", "all", "");
+    setLocation("/articles");
   }
 
   const { data, isLoading } = useListArticles({
     page,
     limit: 12,
     search:   debouncedSearch || undefined,
-    category: category !== "all" ? category : undefined,
-    country:  country  !== "all" ? country  : undefined,
+    category: urlCategory !== "all" ? urlCategory : undefined,
+    country:  urlCountry  !== "all" ? urlCountry  : undefined,
   });
 
   const { data: categories } = useListCategories();
   const { data: countries }  = useListCountries();
 
-  const activeCategoryName = category !== "all" ? category : null;
-  const activeCountryName  = country  !== "all"
-    ? (countries?.find(c => c.country === country || c.code === country)?.country ?? country)
-    : null;
-  const hasActiveFilters = category !== "all" || country !== "all" || debouncedSearch;
+  const hasActiveFilters = urlCategory !== "all" || urlCountry !== "all" || debouncedSearch;
 
   return (
     <Layout>
@@ -123,19 +99,18 @@ export default function Articles() {
         <div className="container mx-auto px-4">
           <h1 className="font-serif text-4xl md:text-5xl font-bold mb-6">Latest News</h1>
 
-          {/* Active filter pills */}
           {hasActiveFilters && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {activeCategoryName && (
-                <FilterPill label={activeCategoryName} onRemove={() => handleCategoryChange("all")} />
+            <div className="flex flex-wrap gap-2 mb-4 items-center">
+              {urlCategory !== "all" && (
+                <FilterPill label={urlCategory} onRemove={() => handleCategoryChange("all")} />
               )}
-              {activeCountryName && (
-                <FilterPill label={activeCountryName} onRemove={() => handleCountryChange("all")} />
+              {urlCountry !== "all" && (
+                <FilterPill label={urlCountry} onRemove={() => handleCountryChange("all")} />
               )}
               {debouncedSearch && (
                 <FilterPill label={`"${debouncedSearch}"`} onRemove={() => {
-                  setSearch(""); setDebouncedSearch(""); setPage(1);
-                  pushURL(category, country, "");
+                  setSearchInput(""); setDebouncedSearch("");
+                  updateURL(urlCategory, urlCountry, "");
                 }} />
               )}
               <button onClick={clearAll} className="text-xs text-muted-foreground hover:text-foreground underline font-mono ml-1">
@@ -150,14 +125,13 @@ export default function Articles() {
               <Input
                 placeholder="Search articles..."
                 className="pl-9 h-10 border-none bg-muted/50 rounded-none focus-visible:ring-primary"
-                value={search}
-                onChange={handleSearchChange}
+                value={searchInput}
+                onChange={handleSearchInput}
               />
             </div>
 
             <div className="flex w-full md:w-auto gap-4">
-              {/* Category dropdown — value matches what's stored in DB */}
-              <Select value={category} onValueChange={handleCategoryChange}>
+              <Select value={urlCategory} onValueChange={handleCategoryChange}>
                 <SelectTrigger className="w-full md:w-[180px] rounded-none h-10 border-border">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
@@ -169,8 +143,7 @@ export default function Articles() {
                 </SelectContent>
               </Select>
 
-              {/* Country dropdown — value is full country name as stored in DB */}
-              <Select value={country} onValueChange={handleCountryChange}>
+              <Select value={urlCountry} onValueChange={handleCountryChange}>
                 <SelectTrigger className="w-full md:w-[180px] rounded-none h-10 border-border">
                   <SelectValue placeholder="Country" />
                 </SelectTrigger>
