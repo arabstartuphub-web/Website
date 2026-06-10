@@ -64,7 +64,7 @@ export default function Home() {
                 {Object.entries(GCC_COUNTRIES).map(([code, meta]) => {
                   const found = stats.articlesByCountry.find(c => c.code === code);
                   return (
-                    <Link key={code} href={`/articles?country=${code}`} title={meta.name}>
+                    <Link key={code} href={`/articles?country=${encodeURIComponent(meta.name)}`} title={meta.name}>
                       <span className="hover:text-foreground transition-colors cursor-pointer">
                         {meta.flag} <strong className="text-foreground">{found?.articleCount ?? 0}</strong>
                       </span>
@@ -209,7 +209,7 @@ export default function Home() {
             {Object.entries(GCC_COUNTRIES).map(([code, meta]) => {
               const found = stats?.articlesByCountry.find(c => c.code === code);
               return (
-                <Link key={code} href={`/articles?country=${code}`}>
+                <Link key={code} href={`/articles?country=${encodeURIComponent(meta.name)}`}>
                   <div className="border border-border bg-card p-4 text-center hover:border-primary hover:bg-primary/5 transition-all group cursor-pointer">
                     <div className="text-3xl mb-2">{meta.flag}</div>
                     <div className="font-serif font-bold text-xs uppercase tracking-wide group-hover:text-primary transition-colors">{meta.name}</div>
