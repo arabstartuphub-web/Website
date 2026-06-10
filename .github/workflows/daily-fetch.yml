@@ -1,0 +1,29 @@
+name: Daily News Fetch
+
+on:
+  schedule:
+    # Run at 04:00, 10:00, 16:00, 22:00 UTC (every 6 hours, offset from server cron)
+    - cron: '0 4 * * *'
+    - cron: '0 10 * * *'
+    - cron: '0 16 * * *'
+    - cron: '0 22 * * *'
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+jobs:
+  fetch-news:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake API and trigger news fetch
+        run: |
+          echo "Waking API service..."
+          # Ping health first to wake from sleep
+          curl -s https://arabian-startups-api.onrender.com/api/healthz || true
+          echo "Waiting 60s for service to wake up..."
+          sleep 60
+          echo "Triggering news fetch..."
+          curl -s -X POST https://arabian-startups-api.onrender.com/api/init \
+            -H "Content-Type: application/json" \
+            --max-time 120 \
+            | cat
+          echo ""
+          echo "Done."
