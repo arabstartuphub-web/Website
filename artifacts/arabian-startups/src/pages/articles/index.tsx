@@ -3,19 +3,18 @@ import { ArticleCard } from "@/components/article-card";
 import { useListArticles, useListCategories, useListCountries } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useLocation } from "wouter";
 
-// Read initial filters from URL params
-function getInitialFilters() {
+// Read filters directly from current URL — called once on mount and whenever URL changes
+function readFiltersFromURL() {
   const params = new URLSearchParams(window.location.search);
   return {
     category: params.get("category") || "all",
-    country: params.get("country") || "all",
-    search: params.get("search") || "",
+    country:  params.get("country")  || "all",
+    search:   params.get("search")   || "",
   };
 }
 
@@ -30,48 +29,92 @@ function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }
 }
 
 export default function Articles() {
-  const initial = getInitialFilters();
-  const [search, setSearch] = useState(initial.search);
-  const [debouncedSearch, setDebouncedSearch] = useState(initial.search);
-  const [category, setCategory] = useState<string>(initial.category);
-  const [country, setCountry] = useState<string>(initial.country);
-  const [page, setPage] = useState(1);
-  const [, setLocation] = useLocation();
+  const initial = readFiltersFromURL();
 
-  // Sync URL params when filters change
-  useEffect(() => {
+  const [search,          setSearch]          = useState(initial.search);
+  const [debouncedSearch, setDebouncedSearch] = useState(initial.search);
+  const [category,        setCategory]        = useState(initial.category);
+  const [country,         setCountry]         = useState(initial.country);
+  const [page,            setPage]            = useState(1);
+
+  // Track whether a URL change came from US (pushing) or from the browser (back/forward)
+  const isPushingRef = useRef(false);
+
+  // Sync state → URL when user changes a filter (don't re-read URL in this case)
+  function pushURL(cat: string, cou: string, srch: string) {
     const params = new URLSearchParams();
-    if (category !== "all") params.set("category", category);
-    if (country !== "all") params.set("country", country);
-    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (cat  !== "all") params.set("category", cat);
+    if (cou  !== "all") params.set("country",  cou);
+    if (srch)           params.set("search",   srch);
     const qs = params.toString();
-    setLocation(qs ? `/articles?${qs}` : "/articles", { replace: true });
-  }, [category, country, debouncedSearch]);
+    const next = qs ? `/articles?${qs}` : "/articles";
+    isPushingRef.current = true;
+    window.history.pushState({}, "", next);
+    // reset flag after tick
+    setTimeout(() => { isPushingRef.current = false; }, 0);
+  }
+
+  // Listen for back/forward navigation (popstate) → sync URL → state
+  useEffect(() => {
+    function onPop() {
+      if (isPushingRef.current) return;
+      const f = readFiltersFromURL();
+      setCategory(f.category);
+      setCountry(f.country);
+      setSearch(f.search);
+      setDebouncedSearch(f.search);
+      setPage(1);
+    }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Handlers — update state AND push URL atomically
+  function handleCategoryChange(v: string) {
+    setCategory(v);
+    setPage(1);
+    pushURL(v, country, debouncedSearch);
+  }
+
+  function handleCountryChange(v: string) {
+    setCountry(v);
+    setPage(1);
+    pushURL(category, v, debouncedSearch);
+  }
+
+  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    setSearch(val);
+    clearTimeout((handleSearchChange as any)._t);
+    (handleSearchChange as any)._t = setTimeout(() => {
+      setDebouncedSearch(val);
+      setPage(1);
+      pushURL(category, country, val);
+    }, 500);
+  }
+
+  function clearAll() {
+    setSearch(""); setDebouncedSearch("");
+    setCategory("all"); setCountry("all");
+    setPage(1);
+    pushURL("all", "all", "");
+  }
 
   const { data, isLoading } = useListArticles({
     page,
     limit: 12,
-    search: debouncedSearch || undefined,
+    search:   debouncedSearch || undefined,
     category: category !== "all" ? category : undefined,
-    country: country !== "all" ? country : undefined,
+    country:  country  !== "all" ? country  : undefined,
   });
 
   const { data: categories } = useListCategories();
-  const { data: countries } = useListCountries();
+  const { data: countries }  = useListCountries();
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-    const id = setTimeout(() => { setDebouncedSearch(e.target.value); setPage(1); }, 500);
-    return () => clearTimeout(id);
-  };
-
-  const clearAll = () => {
-    setSearch(""); setDebouncedSearch(""); setCategory("all"); setCountry("all"); setPage(1);
-  };
-
-  // Find display names for active filters
   const activeCategoryName = category !== "all" ? category : null;
-  const activeCountryName = country !== "all" ? countries?.find(c => c.country === country || c.code === country)?.country : null;
+  const activeCountryName  = country  !== "all"
+    ? (countries?.find(c => c.country === country || c.code === country)?.country ?? country)
+    : null;
   const hasActiveFilters = category !== "all" || country !== "all" || debouncedSearch;
 
   return (
@@ -83,9 +126,21 @@ export default function Articles() {
           {/* Active filter pills */}
           {hasActiveFilters && (
             <div className="flex flex-wrap gap-2 mb-4">
-              {activeCategoryName && <FilterPill label={activeCategoryName} onRemove={() => { setCategory("all"); setPage(1); }} />}
-              {activeCountryName && <FilterPill label={activeCountryName} onRemove={() => { setCountry("all"); setPage(1); }} />}
-              {debouncedSearch && <FilterPill label={`"${debouncedSearch}"`} onRemove={() => { setSearch(""); setDebouncedSearch(""); setPage(1); }} />}
+              {activeCategoryName && (
+                <FilterPill label={activeCategoryName} onRemove={() => handleCategoryChange("all")} />
+              )}
+              {activeCountryName && (
+                <FilterPill label={activeCountryName} onRemove={() => handleCountryChange("all")} />
+              )}
+              {debouncedSearch && (
+                <FilterPill label={`"${debouncedSearch}"`} onRemove={() => {
+                  setSearch(""); setDebouncedSearch(""); setPage(1);
+                  pushURL(category, country, "");
+                }} />
+              )}
+              <button onClick={clearAll} className="text-xs text-muted-foreground hover:text-foreground underline font-mono ml-1">
+                clear all
+              </button>
             </div>
           )}
 
@@ -101,7 +156,8 @@ export default function Articles() {
             </div>
 
             <div className="flex w-full md:w-auto gap-4">
-              <Select value={category} onValueChange={(v) => { setCategory(v); setPage(1); }}>
+              {/* Category dropdown — value matches what's stored in DB */}
+              <Select value={category} onValueChange={handleCategoryChange}>
                 <SelectTrigger className="w-full md:w-[180px] rounded-none h-10 border-border">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
@@ -113,7 +169,8 @@ export default function Articles() {
                 </SelectContent>
               </Select>
 
-              <Select value={country} onValueChange={(v) => { setCountry(v); setPage(1); }}>
+              {/* Country dropdown — value is full country name as stored in DB */}
+              <Select value={country} onValueChange={handleCountryChange}>
                 <SelectTrigger className="w-full md:w-[180px] rounded-none h-10 border-border">
                   <SelectValue placeholder="Country" />
                 </SelectTrigger>
@@ -146,13 +203,17 @@ export default function Articles() {
             </div>
 
             <div className="flex justify-center gap-2">
-              <Button variant="outline" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="rounded-none font-mono uppercase">
+              <Button variant="outline" disabled={page === 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                className="rounded-none font-mono uppercase">
                 Previous
               </Button>
               <div className="flex items-center px-4 font-mono text-sm">
                 Page {page} of {Math.ceil(data.total / data.limit)}
               </div>
-              <Button variant="outline" disabled={page >= Math.ceil(data.total / data.limit)} onClick={() => setPage(p => p + 1)} className="rounded-none font-mono uppercase">
+              <Button variant="outline" disabled={page >= Math.ceil(data.total / data.limit)}
+                onClick={() => setPage(p => p + 1)}
+                className="rounded-none font-mono uppercase">
                 Next
               </Button>
             </div>
