@@ -1,28 +1,23 @@
 import { Linkedin } from "lucide-react";
-import { Button } from "./ui/button";
 
 export function NewsletterCTA() {
   return (
-    <div className="bg-secondary text-secondary-foreground py-16 px-6 border-y-4 border-primary">
-      <div className="container mx-auto max-w-4xl text-center">
-        <h2 className="font-serif text-3xl md:text-5xl font-bold mb-4">
-          Stay in the Loop
+    <div className="bg-[hsl(220,60%,18%)] text-white py-14 px-6">
+      <div className="container mx-auto max-w-3xl text-center">
+        <div className="text-xs font-sans tracking-widest uppercase text-white/50 mb-3">Stay Connected</div>
+        <h2 className="font-serif text-3xl md:text-4xl font-bold mb-4">
+          Never Miss a GCC Startup Story
         </h2>
-        <p className="text-secondary-foreground/80 text-lg mb-8 max-w-2xl mx-auto font-sans">
-          Follow us on LinkedIn for daily GCC startup news, funding rounds, accelerator programs, events, and ecosystem insights delivered straight to your feed.
+        <p className="text-white/70 text-base mb-8 max-w-xl mx-auto">
+          Follow us on LinkedIn for daily startup news, funding rounds, accelerator programs, events and ecosystem insights from Saudi Arabia and the GCC.
         </p>
-
-        <Button
+        <button
           onClick={() => window.open("https://www.linkedin.com/company/arabian-startups-ecosystem", "_blank")}
-          className="h-12 rounded-none px-10 font-serif tracking-wider text-base bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-3"
+          className="inline-flex items-center gap-2 bg-white text-[hsl(220,80%,35%)] hover:bg-white/90 font-bold px-8 py-3 rounded transition-colors text-sm"
         >
-          <Linkedin className="h-5 w-5" />
+          <Linkedin className="h-4 w-4" />
           Follow on LinkedIn
-        </Button>
-
-        <p className="text-xs text-secondary-foreground/50 mt-6 font-mono uppercase tracking-wider">
-          Join founders, investors & operators across the GCC
-        </p>
+        </button>
       </div>
     </div>
   );
