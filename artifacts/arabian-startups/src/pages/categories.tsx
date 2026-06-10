@@ -75,7 +75,7 @@ export default function Categories() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: i * 0.05 }}
               >
-                <Link href={`/articles?country=${country.code}`} className="block text-center border border-border bg-card p-6 hover-elevate group">
+                <Link href={`/articles?country=${encodeURIComponent(country.country)}`} className="block text-center border border-border bg-card p-6 hover-elevate group">
                   <div className="text-4xl mb-3">{getFlag(country.code)}</div>
                   <h3 className="font-serif font-bold text-sm uppercase tracking-wide group-hover:text-primary transition-colors mb-2">{country.country}</h3>
                   <div className="text-xs text-muted-foreground font-mono">{country.articleCount} updates</div>
