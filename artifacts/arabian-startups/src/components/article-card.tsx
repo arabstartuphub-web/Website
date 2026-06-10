@@ -5,33 +5,73 @@ import { format } from "date-fns";
 import { ExternalLink } from "lucide-react";
 
 const CATEGORY_COLORS: Record<string, string> = {
-  "Funding":                  "badge-funding",
-  "Technology":               "badge-technology",
-  "Ecosystem":                "badge-ecosystem",
-  "Launches":                 "badge-launches",
-  "Acquisitions":             "badge-acquisitions",
-  "Policy":                   "badge-policy",
-  "People":                   "badge-people",
-  "Growth":                   "badge-growth",
-  "Incubators & Accelerators":"badge-incubators",
+  "Funding":                   "badge-funding",
+  "Technology":                "badge-technology",
+  "Ecosystem":                 "badge-ecosystem",
+  "Launches":                  "badge-launches",
+  "Acquisitions":              "badge-acquisitions",
+  "Policy":                    "badge-policy",
+  "People":                    "badge-people",
+  "Growth":                    "badge-growth",
+  "Incubators & Accelerators": "badge-incubators",
 };
 
-const CATEGORY_IMAGES: Record<string, string> = {
-  "Funding":                  "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&q=75&auto=format",
-  "Incubators & Accelerators":"https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&q=75&auto=format",
-  "Acquisitions":             "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=600&q=75&auto=format",
-  "Launches":                 "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&q=75&auto=format",
-  "Policy":                   "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=600&q=75&auto=format",
-  "People":                   "https://images.unsplash.com/photo-1553484771-371a605b060b?w=600&q=75&auto=format",
-  "Growth":                   "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=600&q=75&auto=format",
-  "Technology":               "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&q=75&auto=format",
-  "Ecosystem":                "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=600&q=75&auto=format",
+const FLAGS: Record<string, string> = {
+  "Saudi Arabia": "🇸🇦",
+  UAE:     "🇦🇪",
+  Kuwait:  "🇰🇼",
+  Qatar:   "🇶🇦",
+  Bahrain: "🇧🇭",
+  Oman:    "🇴🇲",
+  GCC:     "🌍",
 };
 
-const FLAGS: Record<string, string> = { "Saudi Arabia":"🇸🇦", UAE:"🇦🇪", Kuwait:"🇰🇼", Qatar:"🇶🇦", Bahrain:"🇧🇭", Oman:"🇴🇲", GCC:"🌍" };
+// Unsplash topic IDs — each category maps to a curated topic
+// Using ?sig=<articleId> makes EACH article get a unique but stable photo
+const CATEGORY_UNSPLASH_TOPICS: Record<string, string> = {
+  "Funding":                   "business-finance",
+  "Incubators & Accelerators": "startup-office",
+  "Acquisitions":              "business-meeting",
+  "Launches":                  "product-launch",
+  "Policy":                    "government",
+  "People":                    "portrait-professional",
+  "Growth":                    "data-analytics",
+  "Technology":                "technology",
+  "Ecosystem":                 "community",
+};
 
-function getCategoryImage(category: string) {
-  return CATEGORY_IMAGES[category] ?? "https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&q=75&auto=format";
+// Unsplash search terms per category for varied unique images
+const CATEGORY_SEARCH_TERMS: Record<string, string[]> = {
+  "Funding":                   ["venture capital", "investment", "startup funding", "business deal", "finance"],
+  "Incubators & Accelerators": ["startup workspace", "coworking", "accelerator", "team collaboration", "innovation hub"],
+  "Acquisitions":              ["business handshake", "merger", "corporate deal", "partnership", "agreement"],
+  "Launches":                  ["product launch", "rocket launch", "new beginning", "startup", "announcement"],
+  "Policy":                    ["government", "policy", "regulation", "legislation", "official"],
+  "People":                    ["entrepreneur", "ceo", "business leader", "professional", "executive"],
+  "Growth":                    ["growth chart", "data analytics", "success", "progress", "milestone"],
+  "Technology":                ["technology", "artificial intelligence", "fintech", "innovation", "digital"],
+  "Ecosystem":                 ["startup ecosystem", "conference", "networking", "community", "summit"],
+};
+
+/**
+ * Returns a unique stable image URL for each article.
+ * - If the feed provided a real image, use it.
+ * - Otherwise, use Unsplash source API with article.id as seed (?sig=id)
+ *   so every article gets a different photo, but the same article always
+ *   shows the same photo (stable across page reloads).
+ */
+function getArticleImage(article: Article): string {
+  // Use real image from feed if available
+  if (article.imageUrl && article.imageUrl.startsWith("http")) {
+    return article.imageUrl;
+  }
+
+  // Pick a search term based on article id (cycles through the list)
+  const terms = CATEGORY_SEARCH_TERMS[article.category] ?? CATEGORY_SEARCH_TERMS["Technology"]!;
+  const term  = terms[article.id % terms.length]!;
+
+  // Unsplash source API: unique photo per sig, 800x450 crop
+  return `https://source.unsplash.com/800x450/?${encodeURIComponent(term)}&sig=${article.id}`;
 }
 
 function CategoryBadge({ category }: { category: string }) {
@@ -50,8 +90,17 @@ interface ArticleCardProps {
 }
 
 export function ArticleCard({ article, variant = "standard", index = 0 }: ArticleCardProps) {
-  const imgSrc = article.imageUrl || getCategoryImage(article.category);
-  const flag = FLAGS[article.country] ?? "🌍";
+  const imgSrc = getArticleImage(article);
+  const flag   = FLAGS[article.country] ?? "🌍";
+
+  // On image load error fall back to a different unsplash photo (increment sig by 1000)
+  function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
+    const target = e.target as HTMLImageElement;
+    const terms  = CATEGORY_SEARCH_TERMS[article.category] ?? CATEGORY_SEARCH_TERMS["Technology"]!;
+    const term   = terms[(article.id + 1) % terms.length]!;
+    target.src   = `https://source.unsplash.com/800x450/?${encodeURIComponent(term)}&sig=${article.id + 1000}`;
+    target.onerror = null; // prevent infinite loop
+  }
 
   // Featured — large hero card
   if (variant === "featured") {
@@ -62,7 +111,7 @@ export function ArticleCard({ article, variant = "standard", index = 0 }: Articl
           <div className="relative overflow-hidden" style={{ aspectRatio: "16/9" }}>
             <img src={imgSrc} alt={article.title}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              onError={(e) => { (e.target as HTMLImageElement).src = getCategoryImage(article.category); }} />
+              onError={handleImgError} />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-5">
               <div className="flex items-center gap-2 mb-2">
@@ -90,8 +139,7 @@ export function ArticleCard({ article, variant = "standard", index = 0 }: Articl
       <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}
         className="article-card-hover group flex gap-3 bg-white border border-border p-3 overflow-hidden">
         <div className="w-20 h-16 shrink-0 overflow-hidden">
-          <img src={imgSrc} alt={article.title} className="w-full h-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).src = getCategoryImage(article.category); }} />
+          <img src={imgSrc} alt={article.title} className="w-full h-full object-cover" onError={handleImgError} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
@@ -115,8 +163,7 @@ export function ArticleCard({ article, variant = "standard", index = 0 }: Articl
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}
         className="article-card-hover group flex gap-3 bg-white border border-border p-3">
         <div className="w-16 h-14 shrink-0 overflow-hidden">
-          <img src={imgSrc} alt={article.title} className="w-full h-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).src = getCategoryImage(article.category); }} />
+          <img src={imgSrc} alt={article.title} className="w-full h-full object-cover" onError={handleImgError} />
         </div>
         <div className="flex-1 min-w-0">
           <Link href={`/articles/${article.id}`}>
@@ -130,7 +177,7 @@ export function ArticleCard({ article, variant = "standard", index = 0 }: Articl
     );
   }
 
-  // Standard card — the default grid card
+  // Standard card — default grid card
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}
       className="article-card-hover group bg-white border border-border overflow-hidden flex flex-col h-full">
@@ -138,7 +185,7 @@ export function ArticleCard({ article, variant = "standard", index = 0 }: Articl
         <div className="relative overflow-hidden" style={{ aspectRatio: "16/9" }}>
           <img src={imgSrc} alt={article.title}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={(e) => { (e.target as HTMLImageElement).src = getCategoryImage(article.category); }} />
+            onError={handleImgError} />
           <div className="absolute top-2 left-2 flex items-center gap-1.5">
             <CategoryBadge category={article.category} />
           </div>
