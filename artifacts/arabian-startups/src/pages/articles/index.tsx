@@ -7,28 +7,46 @@ import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useLocation } from "wouter";
+
+// Read initial filters from URL params
+function getInitialFilters() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    category: params.get("category") || "all",
+    country: params.get("country") || "all",
+    search: params.get("search") || "",
+  };
+}
+
+// Active filter pill
+function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 text-xs font-mono px-3 py-1 uppercase tracking-wider">
+      {label}
+      <button onClick={onRemove} className="ml-1 hover:text-destructive font-bold">×</button>
+    </span>
+  );
+}
 
 export default function Articles() {
-  // Read URL params on load — fixes country/category filter from categories page
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialCategory = urlParams.get("category") || "all";
-  const initialCountry = urlParams.get("country") || "all";
-
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<string>(initialCategory);
-  const [country, setCountry] = useState<string>(initialCountry);
+  const initial = getInitialFilters();
+  const [search, setSearch] = useState(initial.search);
+  const [debouncedSearch, setDebouncedSearch] = useState(initial.search);
+  const [category, setCategory] = useState<string>(initial.category);
+  const [country, setCountry] = useState<string>(initial.country);
   const [page, setPage] = useState(1);
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [, setLocation] = useLocation();
 
-  // Re-read URL params if they change (e.g. back/forward navigation)
+  // Sync URL params when filters change
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const cat = params.get("category") || "all";
-    const cou = params.get("country") || "all";
-    setCategory(cat);
-    setCountry(cou);
-    setPage(1);
-  }, [window.location.search]);
+    const params = new URLSearchParams();
+    if (category !== "all") params.set("category", category);
+    if (country !== "all") params.set("country", country);
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    const qs = params.toString();
+    setLocation(qs ? `/articles?${qs}` : "/articles", { replace: true });
+  }, [category, country, debouncedSearch]);
 
   const { data, isLoading } = useListArticles({
     page,
@@ -43,17 +61,18 @@ export default function Articles() {
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearch(e.target.value);
-      setPage(1);
-    }, 500);
-    return () => clearTimeout(timeoutId);
+    const id = setTimeout(() => { setDebouncedSearch(e.target.value); setPage(1); }, 500);
+    return () => clearTimeout(id);
   };
 
-  const getFlag = (code: string) => {
-    const flags: Record<string, string> = { SA: "🇸🇦", AE: "🇦🇪", KW: "🇰🇼", QA: "🇶🇦", BH: "🇧🇭", OM: "🇴🇲" };
-    return flags[code] || "";
+  const clearAll = () => {
+    setSearch(""); setDebouncedSearch(""); setCategory("all"); setCountry("all"); setPage(1);
   };
+
+  // Find display names for active filters
+  const activeCategoryName = category !== "all" ? categories?.find(c => c.slug === category)?.name : null;
+  const activeCountryName = country !== "all" ? countries?.find(c => c.code === country)?.country : null;
+  const hasActiveFilters = category !== "all" || country !== "all" || debouncedSearch;
 
   return (
     <Layout>
@@ -61,21 +80,12 @@ export default function Articles() {
         <div className="container mx-auto px-4">
           <h1 className="font-serif text-4xl md:text-5xl font-bold mb-6">Latest News</h1>
 
-          {/* Active filter pill */}
-          {(country !== "all" || category !== "all") && (
-            <div className="flex gap-2 mb-4 flex-wrap">
-              {country !== "all" && (
-                <span className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/30 text-xs font-mono px-3 py-1 uppercase tracking-wide">
-                  {getFlag(country)} {countries?.find(c => c.code === country)?.country ?? country}
-                  <button onClick={() => { setCountry("all"); setPage(1); }} className="ml-2 hover:text-primary/60">✕</button>
-                </span>
-              )}
-              {category !== "all" && (
-                <span className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/30 text-xs font-mono px-3 py-1 uppercase tracking-wide">
-                  {categories?.find(c => c.slug === category)?.name ?? category}
-                  <button onClick={() => { setCategory("all"); setPage(1); }} className="ml-2 hover:text-primary/60">✕</button>
-                </span>
-              )}
+          {/* Active filter pills */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {activeCategoryName && <FilterPill label={activeCategoryName} onRemove={() => { setCategory("all"); setPage(1); }} />}
+              {activeCountryName && <FilterPill label={activeCountryName} onRemove={() => { setCountry("all"); setPage(1); }} />}
+              {debouncedSearch && <FilterPill label={`"${debouncedSearch}"`} onRemove={() => { setSearch(""); setDebouncedSearch(""); setPage(1); }} />}
             </div>
           )}
 
@@ -110,7 +120,7 @@ export default function Articles() {
                 <SelectContent>
                   <SelectItem value="all">All Countries</SelectItem>
                   {countries?.map(c => (
-                    <SelectItem key={c.code} value={c.code}>{getFlag(c.code)} {c.country}</SelectItem>
+                    <SelectItem key={c.code} value={c.code}>{c.country}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -126,31 +136,23 @@ export default function Articles() {
           </div>
         ) : data?.articles && data.articles.length > 0 ? (
           <>
+            <div className="text-sm text-muted-foreground font-mono mb-6 uppercase tracking-wider">
+              {data.total} article{data.total !== 1 ? "s" : ""} found
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
               {data.articles.map((article, i) => (
                 <ArticleCard key={article.id} article={article} index={i} />
               ))}
             </div>
 
-            {/* Pagination */}
             <div className="flex justify-center gap-2">
-              <Button
-                variant="outline"
-                disabled={page === 1}
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                className="rounded-none font-mono uppercase"
-              >
+              <Button variant="outline" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="rounded-none font-mono uppercase">
                 Previous
               </Button>
               <div className="flex items-center px-4 font-mono text-sm">
                 Page {page} of {Math.ceil(data.total / data.limit)}
               </div>
-              <Button
-                variant="outline"
-                disabled={page >= Math.ceil(data.total / data.limit)}
-                onClick={() => setPage(p => p + 1)}
-                className="rounded-none font-mono uppercase"
-              >
+              <Button variant="outline" disabled={page >= Math.ceil(data.total / data.limit)} onClick={() => setPage(p => p + 1)} className="rounded-none font-mono uppercase">
                 Next
               </Button>
             </div>
@@ -158,18 +160,8 @@ export default function Articles() {
         ) : (
           <div className="text-center py-24 bg-card border border-border">
             <h3 className="font-serif text-2xl font-bold mb-2">No articles found</h3>
-            <p className="text-muted-foreground">Try adjusting your search or filters.</p>
-            <Button
-              variant="outline"
-              className="mt-6 rounded-none font-serif"
-              onClick={() => {
-                setSearch("");
-                setDebouncedSearch("");
-                setCategory("all");
-                setCountry("all");
-                setPage(1);
-              }}
-            >
+            <p className="text-muted-foreground mb-6">Try adjusting your search or filters.</p>
+            <Button variant="outline" className="rounded-none font-serif" onClick={clearAll}>
               Clear Filters
             </Button>
           </div>

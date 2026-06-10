@@ -3,6 +3,23 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 
+// Category-based placeholder images using Unsplash (free, no API key needed)
+const CATEGORY_IMAGES: Record<string, string> = {
+  "Funding":                  "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=800&q=80",
+  "Incubators & Accelerators":"https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80",
+  "Acquisitions":             "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&q=80",
+  "Launches":                 "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80",
+  "Policy":                   "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800&q=80",
+  "People":                   "https://images.unsplash.com/photo-1553484771-371a605b060b?w=800&q=80",
+  "Growth":                   "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&q=80",
+  "Technology":               "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&q=80",
+  "Ecosystem":                "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=800&q=80",
+};
+
+function getCategoryImage(category: string): string {
+  return CATEGORY_IMAGES[category] ?? "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80";
+}
+
 interface ArticleCardProps {
   article: Article;
   variant?: "featured" | "standard" | "compact" | "trending";
@@ -32,17 +49,12 @@ export function ArticleCard({ article, variant = "standard", index = 0 }: Articl
       >
         <Link href={`/articles/${article.id}`} className="block h-full">
           <div className="aspect-[16/9] w-full bg-muted relative overflow-hidden">
-            {article.imageUrl ? (
-              <img 
-                src={article.imageUrl} 
-                alt={article.title}
-                className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
-              />
-            ) : (
-              <div className="w-full h-full bg-secondary/10 flex items-center justify-center">
-                <span className="font-serif text-4xl text-primary/20 block">ASE</span>
-              </div>
-            )}
+            <img
+              src={article.imageUrl || getCategoryImage(article.category)}
+              alt={article.title}
+              className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
+              onError={(e) => { (e.target as HTMLImageElement).src = getCategoryImage(article.category); }}
+            />
             <div className="absolute top-4 left-4 flex gap-2">
               <span className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 uppercase tracking-wider">
                 {article.category}
