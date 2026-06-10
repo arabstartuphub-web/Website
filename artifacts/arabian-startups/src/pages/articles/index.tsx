@@ -70,7 +70,7 @@ export default function Articles() {
   };
 
   // Find display names for active filters
-  const activeCategoryName = category !== "all" ? categories?.find(c => c.slug === category)?.name : null;
+  const activeCategoryName = category !== "all" ? category : null;
   const activeCountryName = country !== "all" ? countries?.find(c => c.country === country || c.code === country)?.country : null;
   const hasActiveFilters = category !== "all" || country !== "all" || debouncedSearch;
 
@@ -108,7 +108,7 @@ export default function Articles() {
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
                   {categories?.map(c => (
-                    <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+                    <SelectItem key={c.slug} value={c.name}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

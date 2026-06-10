@@ -44,7 +44,7 @@ export default function Categories() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
               >
-                <Link href={`/articles?category=${cat.slug}`} className="block h-full border border-border bg-card p-6 hover-elevate group">
+                <Link href={`/articles?category=${encodeURIComponent(cat.name)}`} className="block h-full border border-border bg-card p-6 hover-elevate group">
                   <div className="flex justify-between items-start mb-4">
                     <h3 className="font-serif text-xl font-bold group-hover:text-primary transition-colors">{cat.name}</h3>
                     <span className="bg-muted text-muted-foreground text-xs font-mono px-2 py-1">{cat.articleCount}</span>
