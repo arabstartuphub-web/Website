@@ -1,3 +1,4 @@
+
 import { Article } from "@workspace/api-client-react/src/generated/api.schemas";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -26,52 +27,34 @@ const FLAGS: Record<string, string> = {
   GCC:     "🌍",
 };
 
-// Unsplash topic IDs — each category maps to a curated topic
-// Using ?sig=<articleId> makes EACH article get a unique but stable photo
-const CATEGORY_UNSPLASH_TOPICS: Record<string, string> = {
-  "Funding":                   "business-finance",
-  "Incubators & Accelerators": "startup-office",
-  "Acquisitions":              "business-meeting",
-  "Launches":                  "product-launch",
-  "Policy":                    "government",
-  "People":                    "portrait-professional",
-  "Growth":                    "data-analytics",
-  "Technology":                "technology",
-  "Ecosystem":                 "community",
-};
-
-// Unsplash search terms per category for varied unique images
-const CATEGORY_SEARCH_TERMS: Record<string, string[]> = {
-  "Funding":                   ["venture capital", "investment", "startup funding", "business deal", "finance"],
-  "Incubators & Accelerators": ["startup workspace", "coworking", "accelerator", "team collaboration", "innovation hub"],
-  "Acquisitions":              ["business handshake", "merger", "corporate deal", "partnership", "agreement"],
-  "Launches":                  ["product launch", "rocket launch", "new beginning", "startup", "announcement"],
-  "Policy":                    ["government", "policy", "regulation", "legislation", "official"],
-  "People":                    ["entrepreneur", "ceo", "business leader", "professional", "executive"],
-  "Growth":                    ["growth chart", "data analytics", "success", "progress", "milestone"],
-  "Technology":                ["technology", "artificial intelligence", "fintech", "innovation", "digital"],
-  "Ecosystem":                 ["startup ecosystem", "conference", "networking", "community", "summit"],
+// Curated picsum.photos IDs relevant to each startup/business category.
+// 8 IDs per category — article.id % 8 picks one, so every article gets a
+// different photo within the category, stable across page reloads.
+const CATEGORY_PHOTO_IDS: Record<string, number[]> = {
+  "Funding":                   [3184, 669, 1181, 574, 6801, 7376, 4458, 3153],
+  "Incubators & Accelerators": [1595, 1181, 3184, 1084, 3861, 3182, 1438, 2182],
+  "Acquisitions":              [3182, 3760, 1181, 3184, 1036, 3760, 1181, 3184],
+  "Launches":                  [3861, 1181, 3760, 3184, 3861, 1181, 3760, 3184],
+  "Policy":                    [1036, 3182, 3760, 3184, 1036, 3182, 3760, 3184],
+  "People":                    [1181, 3182, 3760, 3184, 1181, 3182, 3760, 3184],
+  "Growth":                    [186,  590,  669,  3184, 186,  590,  830,  6801],
+  "Technology":                [373,  325,  442,  574,  373,  325,  442,  602],
+  "Ecosystem":                 [1181, 1595, 3184, 3861, 1181, 1595, 3184, 3861],
 };
 
 /**
- * Returns a unique stable image URL for each article.
- * - If the feed provided a real image, use it.
- * - Otherwise, use Unsplash source API with article.id as seed (?sig=id)
- *   so every article gets a different photo, but the same article always
- *   shows the same photo (stable across page reloads).
+ * Image priority:
+ * 1. Real image from the RSS feed source (article.imageUrl) — always preferred
+ * 2. Fallback: category-relevant picsum photo seeded by article.id
+ *    — unique per article, stable, topically relevant
  */
 function getArticleImage(article: Article): string {
-  // Use real image from feed if available
   if (article.imageUrl && article.imageUrl.startsWith("http")) {
     return article.imageUrl;
   }
-
-  // Pick a search term based on article id (cycles through the list)
-  const terms = CATEGORY_SEARCH_TERMS[article.category] ?? CATEGORY_SEARCH_TERMS["Technology"]!;
-  const term  = terms[article.id % terms.length]!;
-
-  // Unsplash source API: unique photo per sig, 800x450 crop
-  return `https://picsum.photos/seed/${article.id}/800/450`;
+  const ids = CATEGORY_PHOTO_IDS[article.category] ?? CATEGORY_PHOTO_IDS["Technology"]!;
+  const photoId = ids[article.id % ids.length]!;
+  return `https://picsum.photos/id/${photoId}/800/450`;
 }
 
 function CategoryBadge({ category }: { category: string }) {
@@ -93,16 +76,15 @@ export function ArticleCard({ article, variant = "standard", index = 0 }: Articl
   const imgSrc = getArticleImage(article);
   const flag   = FLAGS[article.country] ?? "🌍";
 
-  // On image load error fall back to a different photo
+  // On image load error: try next photo ID in the category pool
   function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
     const target = e.target as HTMLImageElement;
-    const terms  = CATEGORY_SEARCH_TERMS[article.category] ?? CATEGORY_SEARCH_TERMS["Technology"]!;
-    const term   = terms[(article.id + 1) % terms.length]!;
-    target.src = `https://picsum.photos/seed/${article.id + 999}/800/450`; 
+    const ids = CATEGORY_PHOTO_IDS[article.category] ?? CATEGORY_PHOTO_IDS["Technology"]!;
+    const nextId = ids[(article.id + 1) % ids.length]!;
+    target.src = `https://picsum.photos/id/${nextId}/800/450`;
     target.onerror = null; // prevent infinite loop
   }
 
-  // Featured — large hero card
   if (variant === "featured") {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}
@@ -133,7 +115,6 @@ export function ArticleCard({ article, variant = "standard", index = 0 }: Articl
     );
   }
 
-  // List variant — horizontal compact row
   if (variant === "list") {
     return (
       <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}
@@ -157,7 +138,6 @@ export function ArticleCard({ article, variant = "standard", index = 0 }: Articl
     );
   }
 
-  // Compact / trending
   if (variant === "compact" || variant === "trending") {
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}
@@ -177,7 +157,7 @@ export function ArticleCard({ article, variant = "standard", index = 0 }: Articl
     );
   }
 
-  // Standard card — default grid card
+  // Standard grid card
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}
       className="article-card-hover group bg-white border border-border overflow-hidden flex flex-col h-full">
