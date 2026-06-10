@@ -71,7 +71,7 @@ function getArticleImage(article: Article): string {
   const term  = terms[article.id % terms.length]!;
 
   // Unsplash source API: unique photo per sig, 800x450 crop
-  return `https://source.unsplash.com/800x450/?${encodeURIComponent(term)}&sig=${article.id}`;
+  return `https://picsum.photos/seed/${article.id}/800/450`;
 }
 
 function CategoryBadge({ category }: { category: string }) {
@@ -93,12 +93,12 @@ export function ArticleCard({ article, variant = "standard", index = 0 }: Articl
   const imgSrc = getArticleImage(article);
   const flag   = FLAGS[article.country] ?? "🌍";
 
-  // On image load error fall back to a different unsplash photo (increment sig by 1000)
+  // On image load error fall back to a different photo
   function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
     const target = e.target as HTMLImageElement;
     const terms  = CATEGORY_SEARCH_TERMS[article.category] ?? CATEGORY_SEARCH_TERMS["Technology"]!;
     const term   = terms[(article.id + 1) % terms.length]!;
-    target.src   = `https://source.unsplash.com/800x450/?${encodeURIComponent(term)}&sig=${article.id + 1000}`;
+    target.src = `https://picsum.photos/seed/${article.id + 999}/800/450`; 
     target.onerror = null; // prevent infinite loop
   }
 
