@@ -117,12 +117,23 @@ function detectCategory(text: string): string {
   return "Ecosystem";
 }
 
-// ─── Auto-cleanup: keep DB lean (max 500 articles) ───────────────────────────
+// ─── Auto-cleanup: keep DB lean (max 300 articles, safe for Neon free tier) ──
+// Articles older than 30 days are also deleted regardless of count.
 async function pruneOldArticles(): Promise<void> {
   try {
+    // 1. Always delete articles older than 30 days (keeps Neon storage tiny)
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    const ageResult = await db.execute(sql`
+      DELETE FROM articles
+      WHERE is_featured = false AND published_at < ${cutoff.toISOString()}
+    `);
+    logger.info({ cutoff: cutoff.toISOString() }, "Pruned articles older than 30 days");
+
+    // 2. If still over 300, drop oldest non-featured to get back to 300
     const countResult = await db.execute(sql`SELECT COUNT(*) as count FROM articles`);
     const total = Number(countResult[0]?.count ?? 0);
-    const MAX_ARTICLES = 500;
+    const MAX_ARTICLES = 300;
     if (total > MAX_ARTICLES) {
       const deleteCount = total - MAX_ARTICLES;
       await db.execute(sql`
@@ -131,7 +142,7 @@ async function pruneOldArticles(): Promise<void> {
           ORDER BY published_at ASC LIMIT ${deleteCount}
         )
       `);
-      logger.info({ deleted: deleteCount, remaining: MAX_ARTICLES }, "Pruned old articles");
+      logger.info({ deleted: deleteCount, remaining: MAX_ARTICLES }, "Pruned old articles to cap");
     }
   } catch (err) {
     logger.warn({ err }, "Failed to prune old articles");
@@ -237,8 +248,12 @@ async function fetchOgImage(articleUrl: string): Promise<string | null> {
 }
 
 // ─── RSS2JSON Proxy Fetcher ───────────────────────────────────────────────────
+// API key is required — set RSS2JSON_API_KEY in Render environment variables.
+// Without it, anonymous requests share a tiny quota and will be rate-limited.
 async function fetchFeedViaProxy(feedUrl: string): Promise<Rss2JsonItem[]> {
-  const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=20`;
+  const apiKey = process.env.RSS2JSON_API_KEY ?? "";
+  const keyParam = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : "";
+  const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=20${keyParam}`;
   const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`rss2json returned ${res.status}`);
   const data = await res.json() as Rss2JsonResponse;
@@ -314,6 +329,8 @@ export async function runDailyFetch(): Promise<void> {
   for (const feed of FEEDS) {
     const count = await fetchAndStoreFeed(feed);
     total += count;
+    // Respect rss2json's 1 request/second rate limit
+    await new Promise((r) => setTimeout(r, 1100));
   }
   logger.info({ total }, "Daily fetch complete");
   await pruneOldArticles();
