@@ -100,6 +100,35 @@ function isGCCRelevant(text: string): boolean {
   return GCC_TERMS.some((t) => text.toLowerCase().includes(t));
 }
 
+// ─── Startup relevance filter — blocks non-startup content ───────────────────
+// Any article (from any source) must match at least one of these to be stored.
+const STARTUP_KEYWORDS = [
+  // Core startup terms
+  "startup", "startups", "founder", "co-founder", "cofounder", "entrepreneur", "entrepreneurship",
+  // Funding & investment
+  "funding", "funded", "investment", "investor", "venture capital", "vc fund",
+  "seed round", "pre-seed", "series a", "series b", "series c", "series d",
+  "raise", "raised", "grant", "equity", "capital",
+  // Programs & support
+  "accelerator", "incubator", "cohort", "batch", "demo day", "program",
+  "call for startups", "applications open", "apply now", "launchpad",
+  // Company events
+  "launch", "launches", "launched", "unveiled", "product launch", "goes live",
+  "acquisition", "acquires", "acquired", "merger", "ipo", "listing", "exit",
+  "unicorn", "valuation", "scale-up", "scaleup",
+  // Tech sectors
+  "fintech", "healthtech", "edtech", "proptech", "agritech", "saas", "deeptech",
+  "web3", "ai startup", "tech company", "tech startup",
+  // Ecosystem signals
+  "innovation", "ecosystem", "hub71", "flat6labs", "taqadam", "misk hub",
+  "pitch", "pitching", "hackathon", "demo", "startup competition",
+];
+
+function isStartupRelevant(text: string): boolean {
+  const lower = text.toLowerCase();
+  return STARTUP_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 function detectCountry(text: string, forceCountry?: string): string {
   if (forceCountry) return forceCountry;
   const lower = text.toLowerCase();
@@ -281,6 +310,7 @@ export async function fetchAndStoreFeed(feed: Feed): Promise<number> {
 
       const combined = `${title} ${summary}`;
       if (!feed.isTrustedGCC && !isGCCRelevant(combined)) continue;
+      if (!isStartupRelevant(combined)) continue;
 
       // Skip duplicates
       const existing = await db
