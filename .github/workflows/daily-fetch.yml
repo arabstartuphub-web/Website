@@ -1,43 +1,50 @@
 name: Daily News Fetch
 
+# This is the BACKUP fetch trigger. The PRIMARY mechanism is UptimeRobot
+# (free) pinging /api/healthz every 5 minutes, which keeps Render awake
+# so the internal node-cron (every 6 hours) runs autonomously.
+#
+# This workflow acts as a safety net: if the server was somehow down during
+# a cron window, this re-triggers a fresh fetch.
+#
+# GitHub will NOT disable this because keepalive.yml commits a file on the
+# 1st of every month, keeping the repo active.
+
 on:
   schedule:
-    # Run twice daily: 07:00 and 19:00 UTC (10:00 and 22:00 AST)
-    # Two runs/day = 72 rss2json requests/day — safely within free quota.
-    # Staggered from server's internal cron (00:00, 06:00, 12:00, 18:00 UTC).
-    - cron: '0 7 * * *'
-    - cron: '0 19 * * *'
-  workflow_dispatch: # allow manual trigger from GitHub UI
+    - cron: '0 8 * * *'    # 08:00 UTC daily  (11:00 AST)
+    - cron: '0 20 * * *'   # 20:00 UTC daily  (23:00 AST)
+  workflow_dispatch:
 
 jobs:
   fetch-news:
     runs-on: ubuntu-latest
     steps:
-      - name: Wake API server (Render free tier sleeps after 15 min)
+      - name: Wake Render service (free tier sleeps after 15 min idle)
+        # Note: if UptimeRobot is active, this is already awake and responds instantly.
         run: |
-          echo "Pinging health endpoint to wake Render service..."
-          curl -s https://arabian-startups-api.onrender.com/api/healthz || true
+          curl -s --max-time 10 \
+            https://arabian-startups-api.onrender.com/api/healthz || true
 
-      - name: Wait for service to be ready (up to 3 min)
+      - name: Wait until service is ready (max 3 min)
         run: |
           for i in $(seq 1 18); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 5 \
               https://arabian-startups-api.onrender.com/api/healthz 2>/dev/null || echo "000")
-            echo "Attempt $i — HTTP $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "Service is up!"
-              break
-            fi
+            echo "Attempt $i/18 — HTTP $STATUS"
+            [ "$STATUS" = "200" ] && echo "Ready." && break
             sleep 10
           done
 
       - name: Trigger news fetch
         run: |
-          echo "Triggering fetch..."
-          RESPONSE=$(curl -s -X POST https://arabian-startups-api.onrender.com/api/init \
+          RESPONSE=$(curl -s -X POST \
+            https://arabian-startups-api.onrender.com/api/init \
             -H "Content-Type: application/json" \
-            --max-time 180)
+            --max-time 200)
           echo "Response: $RESPONSE"
-          # Fail the job if the response contains success:false
-          echo "$RESPONSE" | grep -q '"success":false' && exit 1 || true
+          # Surface failures clearly in the Actions log
+          echo "$RESPONSE" | grep -q '"success":false' \
+            && echo "FETCH FAILED — check Render logs" && exit 1 || true
           echo "Done."
