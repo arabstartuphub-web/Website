@@ -52,12 +52,23 @@ router.get("/articles", async (req, res) => {
 
 router.get("/articles/featured", async (req, res) => {
   try {
+    // Top Story should always reflect the freshest relevant news.
+    // `isFeatured` is a manual pin — but a pin should never outrank fresh
+    // news for more than 48h, otherwise old seeded articles get stuck
+    // at the top forever. So: order by recency first, and within the
+    // last 48h give a slight boost to isFeatured articles as a tiebreaker.
+    const cutoff = new Date();
+    cutoff.setHours(cutoff.getHours() - 48);
+
     const articles = await db
       .select()
       .from(articlesTable)
-      .where(eq(articlesTable.isFeatured, true))
-      .orderBy(desc(articlesTable.publishedAt))
+      .orderBy(
+        desc(sql`(${articlesTable.isFeatured} AND ${articlesTable.publishedAt} >= ${cutoff.toISOString()})`),
+        desc(articlesTable.publishedAt)
+      )
       .limit(5);
+
     res.json(articles);
   } catch (err) {
     req.log.error({ err }, "Failed to get featured articles");
