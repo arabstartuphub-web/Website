@@ -1,4 +1,4 @@
-import { db, articlesTable, digestsTable } from "@workspace/db";
+import { db, articlesTable, digestsTable, fetchRunsTable, type FeedRunStat } from "@workspace/db";
 import { eq, desc, gte, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import Parser from "rss-parser";
@@ -323,10 +323,13 @@ async function fetchOgImage(articleUrl: string): Promise<string | null> {
   }
 }
 
-// ─── Primary: RSS2JSON Proxy Fetcher ──────────────────────────────────────────
-// Setting RSS2JSON_API_KEY in Render environment variables gives a dedicated
-// quota. Without it, anonymous requests share a tiny global quota and are
-// easily rate-limited — that's when fetchFeedDirect below kicks in.
+// ─── Fallback: RSS2JSON Proxy Fetcher ────────────────────────────────────────
+// Only used when fetchFeedDirect (below, now primary) fails — e.g. feeds that
+// are XML-malformed or behind bot-blocking, where rss2json's server-side
+// fetch sometimes succeeds where ours doesn't. Setting RSS2JSON_API_KEY in
+// Render environment variables gives a dedicated quota; without it, anonymous
+// requests share a tiny global quota and are easily rate-limited — since this
+// is now a rarely-used fallback, an API key is optional.
 async function fetchFeedViaProxy(feedUrl: string): Promise<NormalizedItem[]> {
   const apiKey = process.env.RSS2JSON_API_KEY ?? "";
   const keyParam = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : "";
@@ -346,9 +349,9 @@ async function fetchFeedViaProxy(feedUrl: string): Promise<NormalizedItem[]> {
   }));
 }
 
-// ─── Fallback: fetch & parse the raw RSS/Atom XML directly ───────────────────
-// Used whenever rss2json is unreachable, rate-limited, or returns an error
-// status. No API key or external quota involved — straight HTTP GET + parse.
+// ─── Primary: fetch & parse the raw RSS/Atom XML directly ────────────────────
+// Free, unlimited, no third-party dependency. Used for ~90% of feeds. Falls
+// back to fetchFeedViaProxy (rss2json) only on failure.
 const directParser = new Parser({
   timeout: 15000,
   headers: { "User-Agent": "Mozilla/5.0 (compatible; ArabianStartupsBot/1.0)" },
@@ -390,23 +393,27 @@ async function fetchFeedDirect(feedUrl: string): Promise<NormalizedItem[]> {
   });
 }
 
-// ─── Combined fetch — proxy first, raw XML parse as fallback ─────────────────
+// ─── Combined fetch — direct XML first, rss2json as fallback ────────────────
+// Direct parsing is free, unlimited, and has no third-party dependency, so it
+// covers the vast majority of feeds. rss2json is kept as a fallback for feeds
+// that are XML-malformed or behind bot-blocking — rss2json's server-side
+// fetch sometimes succeeds where ours doesn't.
 async function fetchFeedItems(feedUrl: string): Promise<NormalizedItem[]> {
   try {
-    return await fetchFeedViaProxy(feedUrl);
-  } catch (proxyErr) {
-    logger.warn({ err: proxyErr, feed: feedUrl }, "rss2json failed — falling back to direct XML fetch");
+    return await fetchFeedDirect(feedUrl);
+  } catch (directErr) {
+    logger.warn({ err: directErr, feed: feedUrl }, "Direct XML fetch failed — falling back to rss2json proxy");
     try {
-      return await fetchFeedDirect(feedUrl);
-    } catch (directErr) {
-      logger.warn({ err: directErr, feed: feedUrl }, "Direct XML fetch also failed");
-      throw directErr;
+      return await fetchFeedViaProxy(feedUrl);
+    } catch (proxyErr) {
+      logger.warn({ err: proxyErr, feed: feedUrl }, "rss2json fallback also failed");
+      throw proxyErr;
     }
   }
 }
 
 // ─── Feed Fetcher ─────────────────────────────────────────────────────────────
-export async function fetchAndStoreFeed(feed: Feed): Promise<number> {
+export async function fetchAndStoreFeed(feed: Feed): Promise<{ inserted: number; error: string | null }> {
   let inserted = 0;
   try {
     const items = await fetchFeedItems(feed.url);
@@ -461,30 +468,107 @@ export async function fetchAndStoreFeed(feed: Feed): Promise<number> {
     }
 
     if (inserted > 0) logger.info({ feed: feed.sourceName, inserted }, "Feed processed");
+    return { inserted, error: null };
   } catch (err) {
     logger.warn({ err, feed: feed.url }, "Failed to fetch feed");
+    return { inserted, error: err instanceof Error ? err.message : String(err) };
   }
-  return inserted;
 }
 
 // ─── Daily Run ────────────────────────────────────────────────────────────────
 export async function runDailyFetch(): Promise<void> {
   logger.info("Starting daily news fetch");
+  const startedAt = new Date();
   let total = 0;
+  const feedStats: Record<string, FeedRunStat> = {};
+
   for (const feed of FEEDS) {
-    const count = await fetchAndStoreFeed(feed);
-    total += count;
-    // Respect rss2json's 1 request/second rate limit
+    const { inserted, error } = await fetchAndStoreFeed(feed);
+    total += inserted;
+    feedStats[feed.sourceName] = { inserted, error };
+    // Respect rss2json's 1 request/second rate limit (used as fallback)
     await new Promise((r) => setTimeout(r, 1100));
   }
   logger.info({ total }, "Daily fetch complete");
-  await pruneOldArticles();
-  await db.execute(
-    sql`UPDATE categories c SET article_count = sub.cnt FROM
-        (SELECT category, COUNT(*) as cnt FROM articles GROUP BY category) sub
-        WHERE c.name = sub.category`
-  );
-  await generateDailyDigest();
+
+  try {
+    await pruneOldArticles();
+    await db.execute(
+      sql`UPDATE categories c SET article_count = sub.cnt FROM
+          (SELECT category, COUNT(*) as cnt FROM articles GROUP BY category) sub
+          WHERE c.name = sub.category`
+    );
+    await generateDailyDigest();
+
+    // ── Record this run for /api/status and feed-health tracking ──────────────
+    await db.insert(fetchRunsTable).values({
+      startedAt,
+      finishedAt: new Date(),
+      success: true,
+      articlesInserted: total,
+      feedStats,
+      error: null,
+    });
+  } catch (err) {
+    logger.error({ err }, "Daily fetch post-processing failed");
+    try {
+      await db.insert(fetchRunsTable).values({
+        startedAt,
+        finishedAt: new Date(),
+        success: false,
+        articlesInserted: total,
+        feedStats,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } catch (recordErr) {
+      logger.warn({ err: recordErr }, "Failed to record failed fetch run");
+    }
+    throw err;
+  }
+
+  await logDeadFeedsWeekly();
+}
+
+// ─── Weekly feed-health summary ──────────────────────────────────────────────
+// Once a week, log a summary of per-feed insert totals over the last 7 days so
+// dead/silent feeds (e.g. shaky government domains) surface instead of quietly
+// contributing nothing for months.
+async function logDeadFeedsWeekly(): Promise<void> {
+  // Only run on Sundays to avoid spamming logs on every fetch (every 6h).
+  if (new Date().getUTCDay() !== 0) return;
+
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - 7);
+
+    const runs = await db
+      .select({ feedStats: fetchRunsTable.feedStats })
+      .from(fetchRunsTable)
+      .where(gte(fetchRunsTable.startedAt, since));
+
+    const totals: Record<string, { inserted: number; errors: number }> = {};
+    for (const feed of FEEDS) totals[feed.sourceName] = { inserted: 0, errors: 0 };
+
+    for (const run of runs) {
+      const stats = run.feedStats ?? {};
+      for (const [feedName, stat] of Object.entries(stats)) {
+        if (!totals[feedName]) totals[feedName] = { inserted: 0, errors: 0 };
+        totals[feedName]!.inserted += stat.inserted;
+        if (stat.error) totals[feedName]!.errors += 1;
+      }
+    }
+
+    const deadFeeds = Object.entries(totals)
+      .filter(([, t]) => t.inserted === 0)
+      .map(([name, t]) => ({ feed: name, errors: t.errors }));
+
+    logger.info({ totals, runsConsidered: runs.length }, "Weekly feed-health summary");
+    if (deadFeeds.length > 0) {
+      logger.warn({ deadFeeds }, "Feeds with zero inserts in the last 7 days — check for dead/blocked sources");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Failed to compute weekly feed-health summary");
+  }
 }
 
 // ─── Digest Generator ─────────────────────────────────────────────────────────
