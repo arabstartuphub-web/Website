@@ -6,6 +6,7 @@ import digestRouter from "./digest";
 import statsRouter from "./stats";
 import newsletterRouter from "./newsletter";
 import initRouter from "./init";
+import statusRouter from "./status";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(digestRouter);
 router.use(statsRouter);
 router.use(newsletterRouter);
 router.use(initRouter);
+router.use(statusRouter);
 
 export default router;
