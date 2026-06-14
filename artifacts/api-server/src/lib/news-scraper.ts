@@ -1,6 +1,7 @@
 import { db, articlesTable, digestsTable } from "@workspace/db";
 import { eq, desc, gte, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import Parser from "rss-parser";
 
 interface Feed {
   url: string;
@@ -11,19 +12,20 @@ interface Feed {
 
 // ─── RSS Feeds — Saudi Arabia & GCC focused ───────────────────────────────────
 const FEEDS: Feed[] = [
-  // ── Core MENA Startup Media ──────────────────────────────────────────────────
+  // ── Priority Tier — core GCC startup/VC media, fetched first ──────────────────
   { url: "https://wamda.com/feed",                                   sourceName: "Wamda",                 isTrustedGCC: true },
   { url: "https://menabytes.com/feed/",                              sourceName: "MENAbytes",             isTrustedGCC: true },
+  { url: "https://www.arabianbusiness.com/rss",                      sourceName: "Arabian Business",      isTrustedGCC: true },
   { url: "https://techcrunch.com/tag/middle-east/feed/",             sourceName: "TechCrunch MENA",       isTrustedGCC: true },
   { url: "https://techcrunch.com/tag/saudi-arabia/feed/",            sourceName: "TechCrunch Saudi",      isTrustedGCC: true, forceCountry: "Saudi Arabia" },
   { url: "https://techcrunch.com/tag/dubai/feed/",                   sourceName: "TechCrunch Dubai",      isTrustedGCC: true, forceCountry: "UAE" },
-  { url: "https://www.entrepreneur.com/en-ae/rss",                   sourceName: "Entrepreneur ME",       isTrustedGCC: true },
   { url: "https://forbesmiddleeast.com/feed/",                       sourceName: "Forbes Middle East",    isTrustedGCC: true },
   { url: "https://gulfbusiness.com/feed/",                           sourceName: "Gulf Business",         isTrustedGCC: true },
-  { url: "https://www.arabianbusiness.com/rss",                      sourceName: "Arabian Business",      isTrustedGCC: true },
   { url: "https://www.zawya.com/en/rss/startups",                    sourceName: "Zawya Startups",        isTrustedGCC: true },
+  { url: "https://www.entrepreneur.com/en-ae/rss",                   sourceName: "Entrepreneur ME",       isTrustedGCC: true },
   { url: "https://www.khaleejtimes.com/feed/business",               sourceName: "Khaleej Times",         isTrustedGCC: true },
   // ── Saudi Arabia ─────────────────────────────────────────────────────────────
+  { url: "https://www.argaam.com/en/rss",                            sourceName: "Argaam",                isTrustedGCC: true, forceCountry: "Saudi Arabia" },
   { url: "https://www.arabnews.com/taxonomy/term/10251/feed",        sourceName: "Arab News Business",    isTrustedGCC: true, forceCountry: "Saudi Arabia" },
   { url: "https://www.arabnews.com/taxonomy/term/4022/feed",         sourceName: "Arab News Tech",        isTrustedGCC: true, forceCountry: "Saudi Arabia" },
   { url: "https://www.spa.gov.sa/rss/en",                            sourceName: "Saudi Press Agency",    isTrustedGCC: true, forceCountry: "Saudi Arabia" },
@@ -203,6 +205,44 @@ interface Rss2JsonResponse {
   items: Rss2JsonItem[];
 }
 
+// ─── Normalized item shape — both rss2json and direct-parse map into this ────
+interface NormalizedItem {
+  title:       string;
+  link:        string;
+  pubDate:     string;
+  description: string;
+  content:     string;
+  imageUrl:    string | null;
+}
+
+// ─── Shared: scrape an image URL out of raw HTML content ─────────────────────
+function extractImageFromHtml(html: string): string | null {
+  if (!html) return null;
+
+  // <img src="...">
+  const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  if (imgMatch?.[1] && imgMatch[1].startsWith("http")) return imgMatch[1];
+
+  // Lazy-load <img data-src="..."> (Wamda, MENAbytes use this pattern)
+  const dataSrcMatch = html.match(/<img[^>]+data-src=["']([^"']+)["']/i);
+  if (dataSrcMatch?.[1] && dataSrcMatch[1].startsWith("http")) return dataSrcMatch[1];
+
+  // srcset — grab first URL
+  const srcsetMatch = html.match(/srcset=["']([^"'\s,]+)/i);
+  if (srcsetMatch?.[1] && srcsetMatch[1].startsWith("http")) return srcsetMatch[1];
+
+  // og:image meta embedded in feed content
+  const ogMatch = html.match(/property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                || html.match(/content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+  if (ogMatch?.[1] && ogMatch[1].startsWith("http")) return ogMatch[1];
+
+  // media:content url attribute
+  const mediaMatch = html.match(/media:content[^>]+url=["']([^"']+)["']/i);
+  if (mediaMatch?.[1] && mediaMatch[1].startsWith("http")) return mediaMatch[1];
+
+  return null;
+}
+
 // ─── Extract the best image URL from an rss2json item ────────────────────────
 function extractImageUrl(item: Rss2JsonItem): string | null {
   // 1. rss2json thumbnail (most common for MENA feeds)
@@ -218,30 +258,7 @@ function extractImageUrl(item: Rss2JsonItem): string | null {
   }
 
   // 3. Scrape from HTML content/description
-  const html = item.content || item.description || "";
-
-  // 3a. Standard <img src="...">
-  const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-  if (imgMatch?.[1] && imgMatch[1].startsWith("http")) return imgMatch[1];
-
-  // 3b. Lazy-load <img data-src="..."> (Wamda, MENAbytes use this pattern)
-  const dataSrcMatch = html.match(/<img[^>]+data-src=["']([^"']+)["']/i);
-  if (dataSrcMatch?.[1] && dataSrcMatch[1].startsWith("http")) return dataSrcMatch[1];
-
-  // 3c. srcset — grab first URL
-  const srcsetMatch = html.match(/srcset=["']([^"'\s,]+)/i);
-  if (srcsetMatch?.[1] && srcsetMatch[1].startsWith("http")) return srcsetMatch[1];
-
-  // 4. og:image meta embedded in feed content
-  const ogMatch = html.match(/property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-                || html.match(/content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-  if (ogMatch?.[1] && ogMatch[1].startsWith("http")) return ogMatch[1];
-
-  // 5. media:content url attribute
-  const mediaMatch = html.match(/media:content[^>]+url=["']([^"']+)["']/i);
-  if (mediaMatch?.[1] && mediaMatch[1].startsWith("http")) return mediaMatch[1];
-
-  return null;
+  return extractImageFromHtml(item.content || item.description || "");
 }
 
 // ─── Fetch og:image from the article page when RSS has no image ──────────────
@@ -276,10 +293,11 @@ async function fetchOgImage(articleUrl: string): Promise<string | null> {
   }
 }
 
-// ─── RSS2JSON Proxy Fetcher ───────────────────────────────────────────────────
-// API key is required — set RSS2JSON_API_KEY in Render environment variables.
-// Without it, anonymous requests share a tiny quota and will be rate-limited.
-async function fetchFeedViaProxy(feedUrl: string): Promise<Rss2JsonItem[]> {
+// ─── Primary: RSS2JSON Proxy Fetcher ──────────────────────────────────────────
+// Setting RSS2JSON_API_KEY in Render environment variables gives a dedicated
+// quota. Without it, anonymous requests share a tiny global quota and are
+// easily rate-limited — that's when fetchFeedDirect below kicks in.
+async function fetchFeedViaProxy(feedUrl: string): Promise<NormalizedItem[]> {
   const apiKey = process.env.RSS2JSON_API_KEY ?? "";
   const keyParam = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : "";
   const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=20${keyParam}`;
@@ -287,14 +305,81 @@ async function fetchFeedViaProxy(feedUrl: string): Promise<Rss2JsonItem[]> {
   if (!res.ok) throw new Error(`rss2json returned ${res.status}`);
   const data = await res.json() as Rss2JsonResponse;
   if (data.status !== "ok") throw new Error(`rss2json status: ${data.status}`);
-  return data.items ?? [];
+
+  return (data.items ?? []).map((item) => ({
+    title:       item.title ?? "",
+    link:        item.link ?? "",
+    pubDate:     item.pubDate ?? "",
+    description: item.description ?? "",
+    content:     item.content ?? "",
+    imageUrl:    extractImageUrl(item),
+  }));
+}
+
+// ─── Fallback: fetch & parse the raw RSS/Atom XML directly ───────────────────
+// Used whenever rss2json is unreachable, rate-limited, or returns an error
+// status. No API key or external quota involved — straight HTTP GET + parse.
+const directParser = new Parser({
+  timeout: 15000,
+  headers: { "User-Agent": "Mozilla/5.0 (compatible; ArabianStartupsBot/1.0)" },
+});
+
+async function fetchFeedDirect(feedUrl: string): Promise<NormalizedItem[]> {
+  const feed = await directParser.parseURL(feedUrl);
+
+  return (feed.items ?? []).slice(0, 20).map((item) => {
+    const raw = item as unknown as Record<string, unknown>;
+    const contentEncoded = typeof raw["content:encoded"] === "string" ? raw["content:encoded"] as string : undefined;
+
+    const description = item.summary || item.contentSnippet || item.content || "";
+    const content     = item.content || contentEncoded || description;
+
+    // rss-parser exposes enclosure/media tags directly on each item
+    let imageUrl: string | null = null;
+    const enc = item.enclosure;
+    if (enc?.url && enc.url.startsWith("http") && (enc.type?.startsWith("image") || /\.(jpe?g|png|webp|gif)/i.test(enc.url))) {
+      imageUrl = enc.url;
+    }
+    if (!imageUrl) {
+      const mediaContent = raw["media:content"] as { $?: { url?: string } } | undefined;
+      const mediaUrl = mediaContent?.$?.url;
+      if (mediaUrl && mediaUrl.startsWith("http")) imageUrl = mediaUrl;
+    }
+    if (!imageUrl) {
+      imageUrl = extractImageFromHtml(content || description);
+    }
+
+    return {
+      title:       item.title ?? "",
+      link:        item.link ?? "",
+      pubDate:     item.pubDate || item.isoDate || "",
+      description,
+      content,
+      imageUrl,
+    };
+  });
+}
+
+// ─── Combined fetch — proxy first, raw XML parse as fallback ─────────────────
+async function fetchFeedItems(feedUrl: string): Promise<NormalizedItem[]> {
+  try {
+    return await fetchFeedViaProxy(feedUrl);
+  } catch (proxyErr) {
+    logger.warn({ err: proxyErr, feed: feedUrl }, "rss2json failed — falling back to direct XML fetch");
+    try {
+      return await fetchFeedDirect(feedUrl);
+    } catch (directErr) {
+      logger.warn({ err: directErr, feed: feedUrl }, "Direct XML fetch also failed");
+      throw directErr;
+    }
+  }
 }
 
 // ─── Feed Fetcher ─────────────────────────────────────────────────────────────
 export async function fetchAndStoreFeed(feed: Feed): Promise<number> {
   let inserted = 0;
   try {
-    const items = await fetchFeedViaProxy(feed.url);
+    const items = await fetchFeedItems(feed.url);
 
     for (const item of items) {
       const title     = item.title?.trim() ?? "";
@@ -323,8 +408,8 @@ export async function fetchAndStoreFeed(feed: Feed): Promise<number> {
       const country  = detectCountry(combined, feed.forceCountry);
       const category = detectCategory(combined);
 
-      // ── Extract image: RSS feed first, then og:image from article page ────────
-      let imageUrl = extractImageUrl(item);
+      // ── Extract image: feed item first, then og:image from article page ───────
+      let imageUrl = item.imageUrl;
       if (!imageUrl && sourceUrl) {
         imageUrl = await fetchOgImage(sourceUrl);
       }
