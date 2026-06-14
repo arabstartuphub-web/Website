@@ -265,6 +265,12 @@ function extractImageUrl(item: Rss2JsonItem): string | null {
 // Many MENA feeds (Forbes ME, Arab News, Zawya, Khaleej Times) strip images
 // from their RSS. We fetch the actual article page and pull the og:image or
 // twitter:image meta tag — this is the same image the article shows on site.
+// Fallback order (each tier only runs if the previous found nothing):
+//   1. <meta property="og:image" content="...">   (standard, most reliable)
+//   2. <meta name="og:image" content="...">        (non-standard but seen in the wild)
+//   3. <meta name="twitter:image" content="...">
+//   4. First substantial <img> inside the article body — last resort only,
+//      used when a site provides no social meta tags at all.
 // 5 s timeout so the daily run stays fast; silently skips on any error.
 async function fetchOgImage(articleUrl: string): Promise<string | null> {
   try {
@@ -275,17 +281,41 @@ async function fetchOgImage(articleUrl: string): Promise<string | null> {
     if (!res.ok) return null;
     const html = await res.text();
 
-    // og:image — standard, used by Forbes ME, TechCrunch, Wamda, MENAbytes
+    // 1. og:image — standard, used by Forbes ME, TechCrunch, Wamda, MENAbytes
     const ogA = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
     if (ogA?.[1]?.startsWith("http")) return ogA[1];
     const ogB = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
     if (ogB?.[1]?.startsWith("http")) return ogB[1];
 
-    // twitter:image — fallback used by Arab News, Gulf Business, Arabianbusiness
+    // 2. og:image via name= instead of property= (non-standard, some CMSs use this)
+    const ogNameA = html.match(/<meta[^>]+name=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+    if (ogNameA?.[1]?.startsWith("http")) return ogNameA[1];
+    const ogNameB = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']og:image["']/i);
+    if (ogNameB?.[1]?.startsWith("http")) return ogNameB[1];
+
+    // 3. twitter:image — fallback used by Arab News, Gulf Business, Arabianbusiness
     const twA = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
     if (twA?.[1]?.startsWith("http")) return twA[1];
     const twB = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
     if (twB?.[1]?.startsWith("http")) return twB[1];
+
+    // 4. Last resort — first substantial <img> within the article body.
+    // Only reached if the page has NO social meta tags at all (rare, but
+    // happens on some smaller GCC ecosystem sites). Restricts the search to
+    // <article>/<main> if present, to avoid header logos and nav icons.
+    const bodyMatch = html.match(/<article[\s\S]*?<\/article>/i) || html.match(/<main[\s\S]*?<\/main>/i);
+    const body = bodyMatch?.[0] ?? html;
+    const imgTags = body.match(/<img[^>]+>/gi) ?? [];
+    for (const tag of imgTags) {
+      const srcMatch = tag.match(/(?:data-)?src=["']([^"']+)["']/i);
+      const src = srcMatch?.[1];
+      if (!src || !src.startsWith("http")) continue;
+      // Skip obvious non-content images: tiny icons, logos, tracking pixels, SVGs
+      if (/logo|icon|avatar|spacer|pixel|sprite|\.svg(\?|$)/i.test(src)) continue;
+      const widthMatch = tag.match(/width=["']?(\d+)/i);
+      if (widthMatch && Number(widthMatch[1]) < 200) continue;
+      return src;
+    }
 
     return null;
   } catch {
