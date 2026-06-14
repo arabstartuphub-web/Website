@@ -19,6 +19,8 @@ on:
 jobs:
   fetch-news:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     steps:
       - name: Wake Render service (free tier sleeps after 15 min idle)
         # Note: if UptimeRobot is active, this is already awake and responds instantly.
@@ -48,3 +50,84 @@ jobs:
           echo "$RESPONSE" | grep -q '"success":false' \
             && echo "FETCH FAILED — check Render logs" && exit 1 || true
           echo "Done."
+
+      - name: Verify fetch actually ran and found articles
+        id: status_check
+        run: |
+          STATUS=$(curl -s --max-time 30 \
+            https://arabian-startups-api.onrender.com/api/status)
+          echo "Status: $STATUS"
+
+          SUCCESS=$(echo "$STATUS" | jq -r '.lastFetchSuccess')
+          TOTAL=$(echo "$STATUS" | jq -r '.lastFetchTotal')
+          LAST_AT=$(echo "$STATUS" | jq -r '.lastFetchAt')
+          DEAD_FEEDS=$(echo "$STATUS" | jq -r '.deadFeeds | join(", ")')
+
+          echo "lastFetchSuccess=$SUCCESS lastFetchTotal=$TOTAL lastFetchAt=$LAST_AT"
+          echo "dead_feeds=$DEAD_FEEDS" >> "$GITHUB_OUTPUT"
+
+          FAILED=false
+          if [ "$SUCCESS" != "true" ]; then
+            echo "::error::Last fetch run did not succeed (success=$SUCCESS)"
+            FAILED=true
+          fi
+          if [ "$TOTAL" = "0" ] || [ "$TOTAL" = "null" ]; then
+            echo "::error::Last fetch run found 0 new articles (total=$TOTAL)"
+            FAILED=true
+          fi
+          # Last run should be from the last 6 hours (cron interval)
+          LAST_AT_EPOCH=$(date -d "$LAST_AT" +%s 2>/dev/null || echo 0)
+          NOW_EPOCH=$(date -u +%s)
+          AGE_HOURS=$(( (NOW_EPOCH - LAST_AT_EPOCH) / 3600 ))
+          if [ "$LAST_AT_EPOCH" = "0" ] || [ "$AGE_HOURS" -gt 6 ]; then
+            echo "::error::Last fetch run is stale (lastFetchAt=$LAST_AT, ${AGE_HOURS}h ago)"
+            FAILED=true
+          fi
+          if [ -n "$DEAD_FEEDS" ]; then
+            echo "::warning::Feeds with 0 inserts in the last 7 days: $DEAD_FEEDS"
+          fi
+
+          if [ "$FAILED" = "true" ]; then
+            echo "status_failed=true" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo "status_failed=false" >> "$GITHUB_OUTPUT"
+
+      - name: Open GitHub issue on failure
+        if: failure() && steps.status_check.outputs.status_failed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "Daily news fetch failed";
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "fetch-failure",
+            });
+            const body = [
+              `The daily news fetch did not complete successfully.`,
+              ``,
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `Time: ${new Date().toISOString()}`,
+              `Dead feeds (0 inserts in 7 days): ${{ steps.status_check.outputs.dead_feeds }}`,
+              ``,
+              `Check Render logs and /api/status for details.`,
+            ].join("\n");
+
+            if (existing.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ["fetch-failure"],
+              });
+            }
