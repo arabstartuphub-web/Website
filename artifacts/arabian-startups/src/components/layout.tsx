@@ -1,9 +1,18 @@
 import { Link, useLocation } from "wouter";
-import { Search, Menu, X, Linkedin, ChevronDown } from "lucide-react";
+import { Search, Menu, X, Linkedin, ChevronDown, Instagram } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
 import logo from "@/assets/logo.jpg";
 import { format } from "date-fns";
+
+// Facebook SVG icon (not in lucide-react)
+function FacebookIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+    </svg>
+  );
+}
 
 const GCC_COUNTRIES = [
   { name: "Saudi Arabia", code: "Saudi Arabia", flag: "🇸🇦" },
@@ -38,14 +47,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="bg-[hsl(220,60%,18%)] text-white text-xs py-1.5 px-4">
         <div className="container mx-auto flex justify-between items-center">
           <span className="font-sans opacity-80">{format(new Date(), "EEEE, MMMM d, yyyy")}</span>
-          <a
-            href="https://www.linkedin.com/company/arabian-startups-ecosystem"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity"
-          >
-            <Linkedin className="h-3 w-3" /> Follow on LinkedIn
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://www.linkedin.com/company/arabian-startups-ecosystem"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity"
+            >
+              <Linkedin className="h-3 w-3" /> <span className="hidden sm:inline">LinkedIn</span>
+            </a>
+            <a
+              href="https://www.instagram.com/arabian_startups_ecosystem/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity"
+            >
+              <Instagram className="h-3 w-3" /> <span className="hidden sm:inline">Instagram</span>
+            </a>
+            <a
+              href="https://www.facebook.com/profile.php?id=61590585767377"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity"
+            >
+              <FacebookIcon className="h-3 w-3" /> <span className="hidden sm:inline">Facebook</span>
+            </a>
+          </div>
         </div>
       </div>
 
@@ -127,6 +154,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
             >
               <Linkedin className="h-3.5 w-3.5" /> Follow Us
             </Button>
+            <a
+              href="https://www.instagram.com/arabian_startups_ecosystem/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:flex items-center justify-center w-9 h-9 rounded text-[hsl(220,50%,10%)] hover:bg-[hsl(220,80%,35%)] hover:text-white transition-colors"
+              title="Instagram"
+            >
+              <Instagram className="h-4 w-4" />
+            </a>
+            <a
+              href="https://www.facebook.com/profile.php?id=61590585767377"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:flex items-center justify-center w-9 h-9 rounded text-[hsl(220,50%,10%)] hover:bg-[hsl(220,80%,35%)] hover:text-white transition-colors"
+              title="Facebook"
+            >
+              <FacebookIcon className="h-4 w-4" />
+            </a>
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(!mobileOpen)}>
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
@@ -180,6 +225,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <p className="text-white/60 text-sm max-w-sm leading-relaxed">
               The premier intelligence hub for founders, investors, and ecosystem builders across Saudi Arabia and the GCC. Updated daily.
             </p>
+            <div className="flex items-center gap-4 mt-5">
+              <a
+                href="https://www.linkedin.com/company/arabian-startups-ecosystem"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-white/10 text-white/70 hover:bg-[hsl(220,80%,45%)] hover:text-white transition-all"
+                title="LinkedIn"
+              >
+                <Linkedin className="h-4 w-4" />
+              </a>
+              <a
+                href="https://www.instagram.com/arabian_startups_ecosystem/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-white/10 text-white/70 hover:bg-[hsl(220,80%,45%)] hover:text-white transition-all"
+                title="Instagram"
+              >
+                <Instagram className="h-4 w-4" />
+              </a>
+              <a
+                href="https://www.facebook.com/profile.php?id=61590585767377"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-white/10 text-white/70 hover:bg-[hsl(220,80%,45%)] hover:text-white transition-all"
+                title="Facebook"
+              >
+                <FacebookIcon className="h-4 w-4" />
+              </a>
+            </div>
           </div>
           <div>
             <h4 className="font-serif font-bold mb-4 text-white/90 uppercase tracking-wider text-sm">Navigate</h4>
