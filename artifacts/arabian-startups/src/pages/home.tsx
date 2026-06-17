@@ -7,6 +7,8 @@ import { Link } from "wouter";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 // All 6 GCC countries with flags
 const GCC_COUNTRIES: Record<string, { flag: string; name: string }> = {
@@ -28,10 +30,32 @@ const FEED_SECTIONS = [
 
 export default function Home() {
   const { data: featured, isLoading: featuredLoading } = useGetFeaturedArticles();
-  const { data: trending, isLoading: trendingLoading } = useGetTrendingArticles({ limit: 5 });
+  const { data: trending, isLoading: trendingLoading } = useGetTrendingArticles({ limit: 20 });
   const { data: latestArticles, isLoading: latestLoading } = useListArticles({ limit: 6 });
   const { data: stats, isLoading: statsLoading } = useGetEcosystemStats();
   const { data: digest, isLoading: digestLoading } = useGetLatestDigest();
+
+  // Auto-scroll state for Trending Now
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const trendingList = trending ?? [];
+  const visibleCount = 5;
+
+  const scrollNext = useCallback(() => {
+    setActiveIndex(prev => (prev + 1) % Math.max(1, trendingList.length));
+  }, [trendingList.length]);
+
+  const scrollPrev = useCallback(() => {
+    setActiveIndex(prev => (prev - 1 + trendingList.length) % Math.max(1, trendingList.length));
+  }, [trendingList.length]);
+
+  useEffect(() => {
+    if (isPaused || trendingList.length === 0) return;
+    intervalRef.current = setInterval(scrollNext, 3500);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [isPaused, scrollNext, trendingList.length]);
 
   // Per-category feeds
   const { data: fundingArticles }     = useListArticles({ limit: 4, category: "Funding" });
@@ -128,18 +152,67 @@ export default function Home() {
 
             {/* Trending */}
             <div>
-              <div className="mb-6 flex items-center justify-between border-b border-border pb-2">
+              <div className="mb-4 flex items-center justify-between border-b border-border pb-2">
                 <h2 className="font-serif text-xl font-bold uppercase tracking-tight">Trending Now</h2>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={scrollPrev}
+                    className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                    aria-label="Previous"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={scrollNext}
+                    className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                    aria-label="Next"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex flex-col">
+              <div
+                className="overflow-hidden relative"
+                onMouseEnter={() => setIsPaused(true)}
+                onMouseLeave={() => setIsPaused(false)}
+              >
                 {trendingLoading ? (
-                  Array(4).fill(0).map((_, i) => <Skeleton key={i} className="w-full h-16 mb-4" />)
-                ) : trending ? (
-                  trending.map((article, i) => (
-                    <ArticleCard key={article.id} article={article} variant="trending" index={i} />
-                  ))
+                  Array(5).fill(0).map((_, i) => <Skeleton key={i} className="w-full h-16 mb-3" />)
+                ) : trendingList.length > 0 ? (
+                  <div className="flex flex-col">
+                    {Array.from({ length: visibleCount }).map((_, offset) => {
+                      const idx = (activeIndex + offset) % trendingList.length;
+                      const article = trendingList[idx];
+                      return (
+                        <motion.div
+                          key={`${article.id}-${activeIndex}-${offset}`}
+                          initial={{ opacity: offset === 0 ? 0 : 1, y: offset === 0 ? -8 : 0 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.4, ease: "easeOut", delay: offset * 0.05 }}
+                        >
+                          <ArticleCard article={article} variant="trending" index={offset} />
+                        </motion.div>
+                      );
+                    })}
+                  </div>
                 ) : null}
               </div>
+              {trendingList.length > 0 && (
+                <div className="flex justify-center gap-1 mt-3">
+                  {trendingList.slice(0, Math.min(trendingList.length, 10)).map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveIndex(i)}
+                      className={`w-1.5 h-1.5 rounded-full transition-all ${
+                        i === activeIndex % trendingList.length
+                          ? "bg-primary w-4"
+                          : "bg-muted-foreground/30 hover:bg-muted-foreground/60"
+                      }`}
+                      aria-label={`Go to item ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
