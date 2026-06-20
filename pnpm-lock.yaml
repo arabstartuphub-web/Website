@@ -156,13 +156,16 @@ overrides:
 importers:
 
   .:
-    devDependencies:
-      prettier:
-        specifier: ^3.8.3
-        version: 3.8.3
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
+    dependencies:
+      drizzle-orm:
+        specifier: ^0.43.1
+        version: 0.45.2(@types/pg@8.20.0)(pg@8.20.0)
+      pg:
+        specifier: ^8.20.0
+        version: 8.20.0
+      rss-parser:
+        specifier: ^3.13.0
+        version: 3.13.0
 
   artifacts/api-server:
     dependencies:
