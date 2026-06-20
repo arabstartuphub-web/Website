@@ -476,7 +476,7 @@ export async function fetchAndStoreFeed(feed: Feed): Promise<{ inserted: number;
 }
 
 // ─── Daily Run ────────────────────────────────────────────────────────────────
-export async function runDailyFetch(): Promise<void> {
+export async function runDailyFetch(): Promise<number> {
   logger.info("Starting daily news fetch");
   const startedAt = new Date();
   let total = 0;
@@ -527,6 +527,7 @@ export async function runDailyFetch(): Promise<void> {
   }
 
   await logDeadFeedsWeekly();
+  return total;
 }
 
 // ─── Weekly feed-health summary ──────────────────────────────────────────────
