@@ -20,7 +20,7 @@ jobs:
       issues: write
 
     steps:
-      # ── 1. Checkout (needed to get fetch-articles.mjs and package.json) ──────
+      # ── 1. Checkout ───────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -28,13 +28,11 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: fetch-package.json
+          node-version: '24'
 
       # ── 3. Install fetch script dependencies ──────────────────────────────────
       - name: Install dependencies
-        run: npm install --prefix . pg drizzle-orm rss-parser
+        run: npm install pg drizzle-orm rss-parser
 
       # ── 4. Run the fetch script — writes directly to Neon DB ─────────────────
       - name: Fetch and store articles
