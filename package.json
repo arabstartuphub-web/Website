@@ -8,8 +8,7 @@
     "fetch": "node fetch-articles.mjs"
   },
   "dependencies": {
-    "drizzle-orm": "^0.43.1",
-    "pg": "^8.20.0",
-    "rss-parser": "^3.13.0"
+   "prettier": "^3.8.3",
+   "typescript": "~5.9.3"
   }
 }
