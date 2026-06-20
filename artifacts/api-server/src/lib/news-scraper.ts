@@ -8,6 +8,7 @@ interface Feed {
   sourceName: string;
   isTrustedGCC?: boolean;
   forceCountry?: string;
+  proxyOnly?: boolean;  // skip direct fetch — site blocks scrapers (403)
 }
 
 // ─── RSS Feeds — Saudi Arabia & GCC focused ───────────────────────────────────
@@ -15,15 +16,15 @@ const FEEDS: Feed[] = [
   // ── Priority Tier — core GCC startup/VC media, fetched first ──────────────────
   { url: "https://wamda.com/feed",                                   sourceName: "Wamda",                 isTrustedGCC: true },
   { url: "https://menabytes.com/feed/",                              sourceName: "MENAbytes",             isTrustedGCC: true },
-  { url: "https://www.arabianbusiness.com/rss",                      sourceName: "Arabian Business",      isTrustedGCC: true },
+  { url: "https://www.arabianbusiness.com/rss",                      sourceName: "Arabian Business",      isTrustedGCC: true,  proxyOnly: true },
   { url: "https://techcrunch.com/tag/middle-east/feed/",             sourceName: "TechCrunch MENA",       isTrustedGCC: true },
   { url: "https://techcrunch.com/tag/saudi-arabia/feed/",            sourceName: "TechCrunch Saudi",      isTrustedGCC: true, forceCountry: "Saudi Arabia" },
   { url: "https://techcrunch.com/tag/dubai/feed/",                   sourceName: "TechCrunch Dubai",      isTrustedGCC: true, forceCountry: "UAE" },
-  { url: "https://forbesmiddleeast.com/feed/",                       sourceName: "Forbes Middle East",    isTrustedGCC: true },
+  { url: "https://forbesmiddleeast.com/feed/",                       sourceName: "Forbes Middle East",    isTrustedGCC: true,  proxyOnly: true },
   { url: "https://gulfbusiness.com/feed/",                           sourceName: "Gulf Business",         isTrustedGCC: true },
-  { url: "https://www.zawya.com/en/rss/startups",                    sourceName: "Zawya Startups",        isTrustedGCC: true },
+  { url: "https://www.zawya.com/en/rss/startups",                    sourceName: "Zawya Startups",        isTrustedGCC: true,  proxyOnly: true },
   { url: "https://www.entrepreneur.com/en-ae/rss",                   sourceName: "Entrepreneur ME",       isTrustedGCC: true },
-  { url: "https://www.khaleejtimes.com/feed/business",               sourceName: "Khaleej Times",         isTrustedGCC: true },
+  { url: "https://www.khaleejtimes.com/feed/business",               sourceName: "Khaleej Times",         isTrustedGCC: true,  proxyOnly: true },
   // ── Saudi Arabia ─────────────────────────────────────────────────────────────
   { url: "https://www.argaam.com/en/rss",                            sourceName: "Argaam",                isTrustedGCC: true, forceCountry: "Saudi Arabia" },
   { url: "https://www.arabnews.com/taxonomy/term/10251/feed",        sourceName: "Arab News Business",    isTrustedGCC: true, forceCountry: "Saudi Arabia" },
@@ -350,15 +351,45 @@ async function fetchFeedViaProxy(feedUrl: string): Promise<NormalizedItem[]> {
 }
 
 // ─── Primary: fetch & parse the raw RSS/Atom XML directly ────────────────────
+// ─── Sanitize raw XML before parsing — fixes malformed entity errors ──────────
+// Many MENA feeds (MENAbytes, Arab News, Gulf Business) contain raw & ampersands
+// or broken HTML entities that strict SAX parsers reject. We pre-clean the XML
+// string before handing it to rss-parser.
+function sanitizeFeedXml(xml: string): string {
+  return xml
+    // Replace bare & not followed by a valid entity reference with &amp;
+    .replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[\da-fA-F]+);)/g, "&amp;")
+    // Strip control characters (except tab, newline, carriage return)
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+}
+
 // Free, unlimited, no third-party dependency. Used for ~90% of feeds. Falls
 // back to fetchFeedViaProxy (rss2json) only on failure.
 const directParser = new Parser({
   timeout: 15000,
-  headers: { "User-Agent": "Mozilla/5.0 (compatible; ArabianStartupsBot/1.0)" },
+  headers: {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "application/rss+xml, application/xml, text/xml, */*",
+  },
+  xml2js: {
+    strict: false,   // tolerate malformed XML instead of throwing
+    normalize: true,
+  },
 });
 
 async function fetchFeedDirect(feedUrl: string): Promise<NormalizedItem[]> {
-  const feed = await directParser.parseURL(feedUrl);
+  // Fetch raw XML ourselves so we can sanitize before parsing
+  const res = await fetch(feedUrl, {
+    signal: AbortSignal.timeout(15000),
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "application/rss+xml, application/xml, text/xml, */*",
+    },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status} from ${feedUrl}`);
+  const rawXml = await res.text();
+  const cleanXml = sanitizeFeedXml(rawXml);
+  const feed = await directParser.parseString(cleanXml);
 
   return (feed.items ?? []).slice(0, 20).map((item) => {
     const raw = item as unknown as Record<string, unknown>;
@@ -398,17 +429,20 @@ async function fetchFeedDirect(feedUrl: string): Promise<NormalizedItem[]> {
 // covers the vast majority of feeds. rss2json is kept as a fallback for feeds
 // that are XML-malformed or behind bot-blocking — rss2json's server-side
 // fetch sometimes succeeds where ours doesn't.
-async function fetchFeedItems(feedUrl: string): Promise<NormalizedItem[]> {
-  try {
-    return await fetchFeedDirect(feedUrl);
-  } catch (directErr) {
-    logger.warn({ err: directErr, feed: feedUrl }, "Direct XML fetch failed — falling back to rss2json proxy");
+// proxyOnly=true skips direct fetch entirely for known 403-blocking sites.
+async function fetchFeedItems(feed: Feed): Promise<NormalizedItem[]> {
+  if (!feed.proxyOnly) {
     try {
-      return await fetchFeedViaProxy(feedUrl);
-    } catch (proxyErr) {
-      logger.warn({ err: proxyErr, feed: feedUrl }, "rss2json fallback also failed");
-      throw proxyErr;
+      return await fetchFeedDirect(feed.url);
+    } catch (directErr) {
+      logger.warn({ err: directErr, feed: feed.url }, "Direct XML fetch failed — falling back to rss2json proxy");
     }
+  }
+  try {
+    return await fetchFeedViaProxy(feed.url);
+  } catch (proxyErr) {
+    logger.warn({ err: proxyErr, feed: feed.url }, "rss2json fallback also failed");
+    throw proxyErr;
   }
 }
 
@@ -416,7 +450,7 @@ async function fetchFeedItems(feedUrl: string): Promise<NormalizedItem[]> {
 export async function fetchAndStoreFeed(feed: Feed): Promise<{ inserted: number; error: string | null }> {
   let inserted = 0;
   try {
-    const items = await fetchFeedItems(feed.url);
+    const items = await fetchFeedItems(feed);
 
     for (const item of items) {
       const title     = item.title?.trim() ?? "";
@@ -476,7 +510,7 @@ export async function fetchAndStoreFeed(feed: Feed): Promise<{ inserted: number;
 }
 
 // ─── Daily Run ────────────────────────────────────────────────────────────────
-export async function runDailyFetch(): Promise<number> {
+export async function runDailyFetch(): Promise<void> {
   logger.info("Starting daily news fetch");
   const startedAt = new Date();
   let total = 0;
@@ -527,7 +561,6 @@ export async function runDailyFetch(): Promise<number> {
   }
 
   await logDeadFeedsWeekly();
-  return total;
 }
 
 // ─── Weekly feed-health summary ──────────────────────────────────────────────
