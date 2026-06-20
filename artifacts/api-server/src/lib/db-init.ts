@@ -59,6 +59,23 @@ async function seedArticlesFromFile(): Promise<number> {
 export async function initializeDatabase(): Promise<{ categories: number; articles: number }> {
   logger.info("Initializing database...");
 
+  // ── Ensure fetch_runs table exists (created here because Render free tier
+  //    has no shell for migrations — same pattern as categories below) ─────────
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS fetch_runs (
+        id               SERIAL PRIMARY KEY,
+        started_at       TIMESTAMP NOT NULL,
+        finished_at      TIMESTAMP,
+        success          BOOLEAN NOT NULL DEFAULT FALSE,
+        articles_inserted INTEGER NOT NULL DEFAULT 0,
+        feed_stats       JSON DEFAULT '{}',
+        error            TEXT,
+        created_at       TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+  } catch (err) { logger.warn({ err }, "fetch_runs table check failed"); }
+
   // Ensure categories exist
   let insertedCategories = 0;
   try {
@@ -91,12 +108,9 @@ export async function initializeDatabase(): Promise<{ categories: number; articl
       await seedArticlesFromFile();
     }
 
-    // Always run live fetch to get latest news
-    logger.info("Running live RSS fetch via proxy...");
-    await runDailyFetch();
-
-    const after = await db.execute(sql`SELECT COUNT(*) FROM articles`);
-    articlesCount = Number(after?.[0]?.count ?? 0);
+    // Always run live fetch — returns number of newly inserted articles
+    logger.info("Running live RSS fetch...");
+    articlesCount = await runDailyFetch();
     logger.info({ articlesCount }, "Init complete");
   } catch (err) { logger.error({ err }, "Failed to populate articles"); }
 
