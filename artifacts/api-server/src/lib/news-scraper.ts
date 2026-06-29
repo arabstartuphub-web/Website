@@ -71,10 +71,10 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "launchpad", "launch pad",
   ],
   Funding: [
-    "raise", "raised", "funding", "series a", "series b", "series c", "series d",
-    "investment", "venture capital", "seed round", "pre-seed", "million", "billion",
-    "capital", "backed", "investor", "angel", "grant", "equity", "vc fund",
-    "closes fund", "fund close", "lead investor", "co-investor",
+    "funding round", "funding", "series a", "series b", "series c", "series d",
+    "venture capital", "seed round", "pre-seed", "vc fund", "vc-backed",
+    "angel round", "angel investor", "backed by", "lead investor", "co-investor",
+    "closes fund", "fund close", "raises $", "raised $", "secures funding",
   ],
   Acquisitions: ["acqui", "merger", "bought", "purchase", "takeover", "stake", "acquires", "acquired", "m&a", "exit", "buyout", "strategic investment"],
   Launches: ["launch", "launches", "unveiled", "introduces", "announces new", "new product", "debut", "rollout", "goes live", "open for applications", "now available"],
@@ -85,36 +85,93 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   Ecosystem: ["hackathon", "meetup", "event", "summit", "conference", "workshop", "pitch competition", "startup competition", "demo day", "investor day", "networking", "panel", "fireside", "partnership", "collaboration", "ecosystem", "community", "hub", "report", "index", "ranking", "entrepreneurship world cup", "startup world cup"],
 };
 
+// ─── GCC relevance — explicit country/org terms only ─────────────────────────
+// Removed broad terms ("arab", "gulf", "mena", "middle east") that let
+// Egypt, Iran, Lebanon etc. pass through as GCC content.
 const GCC_TERMS = [
-  "saudi", "uae", "dubai", "abu dhabi", "kuwait", "qatar", "bahrain", "oman",
-  "gulf", "gcc", "mena", "middle east", "arab", "riyadh", "doha", "manama",
-  "muscat", "sharjah", "ajman", "ksa", "neom", "vision 2030",
-  "hub71", "flat6labs", "taqadam", "misk", "badir", "wa'ed", "waed", "in5",
-  "dtec", "astrolabs", "tamkeen", "qstp", "monsha'at", "monshaat", "otf",
+  "saudi arabia", "saudi", "ksa", "riyadh", "jeddah", "dammam",
+  "uae", "dubai", "abu dhabi", "sharjah", "ajman", "emirati",
+  "kuwait", "kuwaiti",
+  "qatar", "doha", "qatari",
+  "bahrain", "manama", "bahraini",
+  "oman", "muscat", "omani",
+  "gcc", "neom", "vision 2030", "vision2030",
+  "hub71", "flat6labs", "taqadam", "misk hub", "misk", "badir",
+  "wa'ed", "waed", "in5", "dtec", "astrolabs", "tamkeen", "qstp",
+  "monsha'at", "monshaat", "otf", "difc", "adgm",
 ];
 
-const STARTUP_KEYWORDS = [
-  "startup", "startups", "founder", "co-founder", "cofounder", "entrepreneur", "entrepreneurship",
-  "funding", "funded", "investment", "investor", "venture capital", "vc fund",
-  "seed round", "pre-seed", "series a", "series b", "series c", "series d",
-  "raise", "raised", "grant", "equity", "capital",
-  "accelerator", "incubator", "cohort", "batch", "demo day", "program",
-  "call for startups", "applications open", "apply now", "launchpad",
-  "launch", "launches", "launched", "unveiled", "product launch", "goes live",
-  "acquisition", "acquires", "acquired", "merger", "ipo", "listing", "exit",
-  "unicorn", "valuation", "scale-up", "scaleup",
-  "fintech", "healthtech", "edtech", "proptech", "agritech", "saas", "deeptech",
-  "web3", "ai startup", "tech company", "tech startup",
-  "innovation", "ecosystem", "hub71", "flat6labs", "taqadam", "misk hub",
-  "pitch", "pitching", "hackathon", "demo", "startup competition",
+// Hard-block articles primarily about these non-GCC countries
+const NON_GCC_COUNTRIES = [
+  "egypt", "egyptian", "cairo",
+  "iran", "iranian", "tehran",
+  "israel", "israeli", "tel aviv",
+  "lebanon", "beirut", "lebanese",
+  "iraq", "iraqi", "baghdad",
+  "syria", "syrian",
+  "turkey", "turkish",
+  "jordan", "jordanian", "amman",
+  "morocco", "moroccan", "algeria", "tunisia",
+  "libya", "libyan", "sudan", "sudanese",
+  "yemen", "yemeni",
 ];
 
 function isGCCRelevant(text: string): boolean {
-  return GCC_TERMS.some((t) => text.toLowerCase().includes(t));
+  const lower    = text.toLowerCase();
+  const gccHits  = GCC_TERMS.filter(t => lower.includes(t)).length;
+  // No GCC signal at all → reject
+  if (gccHits === 0) return false;
+  // Non-GCC country present with no GCC match → reject
+  const nonGccHit = NON_GCC_COUNTRIES.some(c => lower.includes(c));
+  if (nonGccHit && gccHits === 0) return false;
+  return true;
 }
+
+// ─── Startup relevance — tightened to avoid commodity/military/macro pass-through
+// Removed: "capital", "investment", "equity", "listing", "launch", "program",
+// "exit", "raise", "raised" — too generic, match gold/oil/war articles.
+// Kept only terms that are unambiguously startup/tech ecosystem signals.
+const STARTUP_KEYWORDS = [
+  // Core startup identity
+  "startup", "startups", "founder", "co-founder", "cofounder",
+  "entrepreneur", "entrepreneurship", "early-stage", "seed-stage",
+  // Funding — specific enough
+  "venture capital", "vc fund", "vc-backed",
+  "seed round", "pre-seed", "series a", "series b", "series c", "series d",
+  "funding round", "angel round", "angel investor",
+  // Programs & ecosystem
+  "accelerator", "incubator", "cohort", "batch", "demo day",
+  "call for startups", "applications open", "apply now", "launchpad",
+  "startup program", "startup competition", "startup studio",
+  // Tech-specific sectors
+  "fintech", "healthtech", "edtech", "proptech", "agritech",
+  "saas", "deeptech", "web3", "ai startup", "tech startup",
+  "cybersecurity startup", "insurtech", "legaltech", "regtech",
+  // Company milestones — specific
+  "unicorn", "valuation", "scale-up", "scaleup",
+  "product launch", "goes live", "tech company",
+  "acqui-hire", "acquihire",
+  // Ecosystem orgs (unambiguous)
+  "hub71", "flat6labs", "taqadam", "misk hub",
+  "y combinator", "techstars", "500 global",
+  // Events
+  "pitch competition", "hackathon", "demo day",
+];
 
 function isStartupRelevant(text: string): boolean {
   const lower = text.toLowerCase();
+  // Must match a startup keyword AND must NOT be primarily about
+  // commodities, military, or macro-finance (these pass loose keyword checks)
+  const HARD_BLOCK_SIGNALS = [
+    "helicopter crash", "killed", "airstrike", "missile", "drone strike",
+    "ceasefire", "retaliation", "warship", "crude oil", "oil price",
+    "gold price", "silver price", "bitcoin", "crypto market",
+    "precious metal", "commodity", "barrel", "brent crude",
+    "interest rate", "treasury yield", "monetary policy",
+    "privatization", "state-owned", "government-owned",
+    "ipo program", "stock exchange listing", "capital market",
+  ];
+  if (HARD_BLOCK_SIGNALS.some(s => lower.includes(s))) return false;
   return STARTUP_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
