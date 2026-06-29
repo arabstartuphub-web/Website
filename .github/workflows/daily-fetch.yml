@@ -1,16 +1,20 @@
 name: Daily News Fetch
 
-# Fetch runs HERE in GitHub Actions — full unrestricted internet access,
-# no Render networking limitations. Render only serves the API (reads DB).
+# THREE independent trigger layers — if any one fires, articles get fetched.
 #
-# GitHub will NOT disable this because keepalive.yml commits a file on the
-# 1st of every month, keeping the repo active.
+# Layer 1: GitHub scheduled cron (primary)
+# Layer 2: cron-job.org dispatches via GitHub API (external backup)  
+# Layer 3: Manual workflow_dispatch (for testing / emergency re-run)
+#
+# Render only SERVES the API. Fetching always runs here in GitHub Actions
+# because Render free tier has DNS restrictions that block outbound RSS fetches.
 
 on:
   schedule:
-    - cron: '0 6 * * *'    # 06:00 UTC daily  (09:00 AST)
-    - cron: '0 12 * * *'   # 12:00 UTC daily  (15:00 AST)
-    - cron: '0 18 * * *'   # 18:00 UTC daily  (21:00 AST)
+    - cron: '0 6 * * *'    # 06:00 UTC (09:00 AST)
+    - cron: '0 14 * * *'   # 14:00 UTC (17:00 AST)
+  repository_dispatch:
+    types: [trigger-fetch]  # cron-job.org sends this event type
   workflow_dispatch:
 
 jobs:
@@ -20,72 +24,64 @@ jobs:
       issues: write
 
     steps:
-      # ── 1. Checkout ───────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Set up Node ────────────────────────────────────────────────────────
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
 
-      # ── 3. Install fetch script dependencies ──────────────────────────────────
       - name: Install dependencies
         run: npm install pg drizzle-orm rss-parser
 
-      # ── 4. Run the fetch script — writes directly to Neon DB ─────────────────
+      # ── Core step: fetch RSS feeds → write to Neon DB ──────────────────────
       - name: Fetch and store articles
         id: fetch
         env:
           DATABASE_URL:     ${{ secrets.DATABASE_URL }}
           RSS2JSON_API_KEY: ${{ secrets.RSS2JSON_API_KEY }}
         run: |
+          echo "Triggered by: ${{ github.event_name }} (${{ github.event.action || 'scheduled' }})"
           node fetch-articles.mjs 2>&1 | tee fetch-output.txt
           EXIT_CODE=${PIPESTATUS[0]}
 
-          # Extract total from script output
           TOTAL=$(grep -oP 'Total new articles: \K[0-9]+' fetch-output.txt || echo "0")
           echo "articles_fetched=$TOTAL" >> "$GITHUB_OUTPUT"
-          echo "fetch_exit=$EXIT_CODE"   >> "$GITHUB_OUTPUT"
-
+          echo "📦 Articles fetched this run: $TOTAL"
           exit $EXIT_CODE
 
-      # ── 5. Wake Render so it's ready to serve the fresh articles ─────────────
+      # ── Wake Render so it's ready to serve the fresh articles ──────────────
       - name: Wake Render API
         if: always()
         run: |
-          curl -s --max-time 30 \
+          curl -s --max-time 60 \
             https://arabian-startups-api.onrender.com/api/healthz || true
+          echo "Render pinged."
 
-      # ── 6. Verify via /api/status ─────────────────────────────────────────────
-      - name: Verify fetch run recorded in DB
+      # ── Check /api/status for dead feed warnings ────────────────────────────
+      - name: Check feed health via /api/status
         id: status_check
         if: success()
         run: |
-          # Give Render a moment to wake if it was asleep
           sleep 5
           STATUS=$(curl -s --max-time 30 \
-            https://arabian-startups-api.onrender.com/api/status)
-          echo "Status: $STATUS"
+            https://arabian-startups-api.onrender.com/api/status || echo '{}')
+          echo "Status response: $STATUS"
 
-          TOTAL=$(echo "$STATUS"   | jq -r '.lastFetchTotal // 0')
-          LAST_AT=$(echo "$STATUS" | jq -r '.lastFetchAt // "null"')
-          DEAD_FEEDS=$(echo "$STATUS" | jq -r '
+          DEAD=$(echo "$STATUS" | jq -r '
             if (.deadFeeds | length) > 0
             then "Dead feeds: " + (.deadFeeds | join(", "))
             else "All feeds active"
-            end')
+            end' 2>/dev/null || echo "status endpoint unreachable")
 
-          echo "lastFetchTotal=$TOTAL  lastFetchAt=$LAST_AT"
-          echo "$DEAD_FEEDS"
-          echo "dead_feeds=$DEAD_FEEDS" >> "$GITHUB_OUTPUT"
-
-          if [ -n "$DEAD_FEEDS" ] && [ "$DEAD_FEEDS" != "All feeds active" ]; then
-            echo "::warning::$DEAD_FEEDS"
+          echo "$DEAD"
+          echo "dead_feeds=$DEAD" >> "$GITHUB_OUTPUT"
+          if [[ "$DEAD" != "All feeds active" && "$DEAD" != "status endpoint unreachable" ]]; then
+            echo "::warning::$DEAD"
           fi
 
-      # ── 7. Open / update GitHub issue on failure ──────────────────────────────
+      # ── Open / update a GitHub issue on any failure ─────────────────────────
       - name: Open GitHub issue on failure
         if: failure()
         uses: actions/github-script@v7
@@ -94,19 +90,19 @@ jobs:
             const today  = new Date().toISOString().slice(0, 10);
             const title  = `🚨 Daily fetch failed — ${today}`;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const dead   = `${{ steps.status_check.outputs.dead_feeds || 'unknown' }}`;
+            const dead   = `${{ steps.status_check.outputs.dead_feeds || 'see run logs' }}`;
+            const trigger = `${{ github.event_name }}`;
 
             const body = [
+              `**Triggered by:** ${trigger}`,
               `**Run:** ${runUrl}`,
               `**Time:** ${new Date().toISOString()}`,
               `**${dead}**`,
               ``,
               `**Likely causes:**`,
-              `- Feed URLs returning errors (check fetch-output.txt in run logs)`,
+              `- Feed errors — check "Fetch and store articles" step logs`,
               `- \`DATABASE_URL\` secret missing or expired`,
               `- \`RSS2JSON_API_KEY\` missing (needed for bot-blocking feeds)`,
-              ``,
-              `**Check:** Run logs above → "Fetch and store articles" step for per-feed errors.`,
             ].join('\n');
 
             const { data: existing } = await github.rest.issues.listForRepo({
