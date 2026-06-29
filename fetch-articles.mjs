@@ -73,46 +73,53 @@ async function ensureTables() {
 // ─── Feed List ────────────────────────────────────────────────────────────────
 const FEEDS = [
   // Priority Tier — core GCC startup/VC media
-  { url: "https://wamda.com/feed",                                   sourceName: "Wamda",                 isTrustedGCC: true },
-  { url: "https://menabytes.com/feed/",                              sourceName: "MENAbytes",             isTrustedGCC: true },
-  { url: "https://www.arabianbusiness.com/rss",                      sourceName: "Arabian Business",      isTrustedGCC: true,  proxyOnly: true },
-  { url: "https://techcrunch.com/tag/middle-east/feed/",             sourceName: "TechCrunch MENA",       isTrustedGCC: true },
-  { url: "https://techcrunch.com/tag/saudi-arabia/feed/",            sourceName: "TechCrunch Saudi",      isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
-  { url: "https://techcrunch.com/tag/dubai/feed/",                   sourceName: "TechCrunch Dubai",      isTrustedGCC: true,  forceCountry: "UAE" },
-  { url: "https://forbesmiddleeast.com/feed/",                       sourceName: "Forbes Middle East",    isTrustedGCC: true,  proxyOnly: true },
-  { url: "https://gulfbusiness.com/feed/",                           sourceName: "Gulf Business",         isTrustedGCC: true },
-  { url: "https://www.zawya.com/en/rss/startups",                    sourceName: "Zawya Startups",        isTrustedGCC: true,  proxyOnly: true },
-  { url: "https://www.entrepreneur.com/en-ae/rss",                   sourceName: "Entrepreneur ME",       isTrustedGCC: true },
-  { url: "https://www.khaleejtimes.com/feed/business",               sourceName: "Khaleej Times",         isTrustedGCC: true,  proxyOnly: true },
+  { url: "https://wamda.com/feed",                                                                                          sourceName: "Wamda",                 isTrustedGCC: true },
+  { url: "https://menabytes.com/feed/",                                                                                     sourceName: "MENAbytes",             isTrustedGCC: true },
+  // Arabian Business blocks all bots including rss2json — use Google News RSS instead
+  { url: "https://news.google.com/rss/search?q=site:arabianbusiness.com+startup&hl=en-US&gl=US&ceid=US:en",                sourceName: "Arabian Business",      isTrustedGCC: true },
+  { url: "https://techcrunch.com/tag/middle-east/feed/",                                                                   sourceName: "TechCrunch MENA",       isTrustedGCC: true },
+  { url: "https://techcrunch.com/tag/saudi-arabia/feed/",                                                                  sourceName: "TechCrunch Saudi",      isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://techcrunch.com/tag/dubai/feed/",                                                                         sourceName: "TechCrunch Dubai",      isTrustedGCC: true,  forceCountry: "UAE" },
+  // Forbes ME blocks bots — use Google News RSS instead
+  { url: "https://news.google.com/rss/search?q=site:forbesmiddleeast.com+startup&hl=en-US&gl=US&ceid=US:en",              sourceName: "Forbes Middle East",    isTrustedGCC: true },
+  // Gulf Business was getting 403 only via proxy — try direct first (no proxyOnly)
+  { url: "https://gulfbusiness.com/feed/",                                                                                 sourceName: "Gulf Business",         isTrustedGCC: true },
+  // Zawya requires login session — use their alternate public feed
+  { url: "https://www.zawya.com/rss/feed.xml",                                                                             sourceName: "Zawya Startups",        isTrustedGCC: true },
+  // Entrepreneur ME RSS is broken/unstable — use Google News RSS instead
+  { url: "https://news.google.com/rss/search?q=site:entrepreneur.com/en-ae&hl=en-US&gl=US&ceid=US:en",                   sourceName: "Entrepreneur ME",       isTrustedGCC: true },
+  // Khaleej Times — try direct without proxyOnly
+  { url: "https://www.khaleejtimes.com/arc/outboundfeeds/rss/?outputType=xml",                                            sourceName: "Khaleej Times",         isTrustedGCC: true },
   // Saudi Arabia
-  { url: "https://www.argaam.com/en/rss",                            sourceName: "Argaam",                isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
-  { url: "https://www.arabnews.com/taxonomy/term/10251/feed",        sourceName: "Arab News Business",    isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
-  { url: "https://www.arabnews.com/taxonomy/term/4022/feed",         sourceName: "Arab News Tech",        isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
-  { url: "https://www.spa.gov.sa/rss/en",                            sourceName: "Saudi Press Agency",    isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
-  { url: "https://saudistartups.org/feed/",                          sourceName: "Saudi Startups",        isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
-  { url: "https://miskhub.com/feed/",                                sourceName: "Misk Hub",              isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
-  { url: "https://monshaat.gov.sa/en/rss.xml",                       sourceName: "Monsha'at",             isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
-  { url: "https://waed.com/feed/",                                   sourceName: "Wa'ed Aramco Ventures", isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
-  { url: "https://www.badir.com.sa/feed",                            sourceName: "Badir Program",         isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
-  { url: "https://www.taqadam.org/feed/",                            sourceName: "TAQADAM KAUST",         isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
-  { url: "https://www.startupgrind.com/blog/feed/?tag=saudi",        sourceName: "Startup Grind Saudi",   isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  // Argaam English RSS moved endpoint
+  { url: "https://www.argaam.com/en/article/rss",                                                                         sourceName: "Argaam",                isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.arabnews.com/taxonomy/term/10251/feed",                                                              sourceName: "Arab News Business",    isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.arabnews.com/taxonomy/term/4022/feed",                                                               sourceName: "Arab News Tech",        isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.spa.gov.sa/rss/en",                                                                                  sourceName: "Saudi Press Agency",    isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://saudistartups.org/feed/",                                                                                sourceName: "Saudi Startups",        isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://miskhub.com/feed/",                                                                                      sourceName: "Misk Hub",              isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://monshaat.gov.sa/en/rss.xml",                                                                             sourceName: "Monsha'at",             isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://waed.com/feed/",                                                                                         sourceName: "Wa'ed Aramco Ventures", isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.badir.com.sa/feed",                                                                                  sourceName: "Badir Program",         isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.taqadam.org/feed/",                                                                                  sourceName: "TAQADAM KAUST",         isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.startupgrind.com/blog/feed/?tag=saudi",                                                             sourceName: "Startup Grind Saudi",   isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
   // UAE
-  { url: "https://hub71.com/news/feed/",                             sourceName: "Hub71",                 isTrustedGCC: true,  forceCountry: "UAE" },
-  { url: "https://flat6labs.com/blog/feed/",                         sourceName: "Flat6Labs",             isTrustedGCC: true },
-  { url: "https://astrolabs.com/blog/feed/",                         sourceName: "AstroLabs",             isTrustedGCC: true,  forceCountry: "UAE" },
-  { url: "https://www.in5.ae/news/feed/",                            sourceName: "In5 Dubai",             isTrustedGCC: true,  forceCountry: "UAE" },
-  { url: "https://dtec.ae/feed/",                                    sourceName: "Dtec Dubai",            isTrustedGCC: true,  forceCountry: "UAE" },
-  { url: "https://www.startupgrind.com/blog/feed/?tag=dubai",        sourceName: "Startup Grind Dubai",   isTrustedGCC: true,  forceCountry: "UAE" },
-  { url: "https://www.brinc.io/blog/rss.xml",                        sourceName: "Brinc Accelerator",     isTrustedGCC: true },
+  { url: "https://hub71.com/news/feed/",                                                                                   sourceName: "Hub71",                 isTrustedGCC: true,  forceCountry: "UAE" },
+  { url: "https://flat6labs.com/blog/feed/",                                                                               sourceName: "Flat6Labs",             isTrustedGCC: true },
+  { url: "https://astrolabs.com/blog/feed/",                                                                               sourceName: "AstroLabs",             isTrustedGCC: true,  forceCountry: "UAE" },
+  { url: "https://www.in5.ae/news/feed/",                                                                                  sourceName: "In5 Dubai",             isTrustedGCC: true,  forceCountry: "UAE" },
+  { url: "https://dtec.ae/feed/",                                                                                          sourceName: "Dtec Dubai",            isTrustedGCC: true,  forceCountry: "UAE" },
+  { url: "https://www.startupgrind.com/blog/feed/?tag=dubai",                                                             sourceName: "Startup Grind Dubai",   isTrustedGCC: true,  forceCountry: "UAE" },
+  { url: "https://www.brinc.io/blog/rss.xml",                                                                             sourceName: "Brinc Accelerator",     isTrustedGCC: true },
   // Qatar, Bahrain, Oman
-  { url: "https://startupbahrain.com/feed/",                         sourceName: "Startup Bahrain",       isTrustedGCC: true,  forceCountry: "Bahrain" },
-  { url: "https://www.tamkeen.bh/news/feed/",                        sourceName: "Tamkeen Bahrain",       isTrustedGCC: true,  forceCountry: "Bahrain" },
-  { url: "https://www.qstp.org.qa/news/feed/",                       sourceName: "QSTP Qatar",            isTrustedGCC: true,  forceCountry: "Qatar" },
-  { url: "https://otf.om/feed/",                                     sourceName: "Oman Technology Fund",  isTrustedGCC: true,  forceCountry: "Oman" },
+  { url: "https://startupbahrain.com/feed/",                                                                               sourceName: "Startup Bahrain",       isTrustedGCC: true,  forceCountry: "Bahrain" },
+  { url: "https://www.tamkeen.bh/news/feed/",                                                                              sourceName: "Tamkeen Bahrain",       isTrustedGCC: true,  forceCountry: "Bahrain" },
+  { url: "https://www.qstp.org.qa/news/feed/",                                                                             sourceName: "QSTP Qatar",            isTrustedGCC: true,  forceCountry: "Qatar" },
+  { url: "https://otf.om/feed/",                                                                                           sourceName: "Oman Technology Fund",  isTrustedGCC: true,  forceCountry: "Oman" },
   // Global
-  { url: "https://500.co/feed/",                                     sourceName: "500 Global",            isTrustedGCC: true },
-  { url: "https://www.techstars.com/feed",                           sourceName: "Techstars",             isTrustedGCC: false },
-  { url: "https://sifted.eu/rss",                                    sourceName: "Sifted",                isTrustedGCC: false },
+  { url: "https://500.co/feed/",                                                                                           sourceName: "500 Global",            isTrustedGCC: true },
+  { url: "https://www.techstars.com/feed",                                                                                 sourceName: "Techstars",             isTrustedGCC: false },
+  { url: "https://sifted.eu/rss",                                                                                          sourceName: "Sifted",                isTrustedGCC: false },
 ];
 
 // ─── Keyword Maps ─────────────────────────────────────────────────────────────
@@ -232,8 +239,9 @@ function extractImageFromHtml(html) {
 }
 
 const BROWSER_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Encoding": "identity",  // disable compression — prevents truncated XML (e.g. Arab News)
 };
 
 async function fetchOgImage(articleUrl) {
@@ -277,22 +285,26 @@ function sanitizeFeedXml(xml) {
 // ─── RSS Parsers ──────────────────────────────────────────────────────────────
 const directParser = new Parser({
   timeout: 15000,
-  headers: { ...BROWSER_HEADERS, "Accept": "application/rss+xml, application/xml, text/xml, */*" },
-  xml2js: { strict: false, normalize: true },
+  headers: { ...BROWSER_HEADERS, "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*" },
+  xml2js:  { strict: false, normalize: true },
+  customFields: {
+    feed: [["atom:link", "atomLink"]],
+    item: [["atom:summary", "atomSummary"], ["atom:content", "atomContent"]],
+  },
 });
 
 async function fetchFeedDirect(feedUrl) {
   const res = await fetch(feedUrl, {
-    signal: AbortSignal.timeout(15000),
-    headers: { ...BROWSER_HEADERS, "Accept": "application/rss+xml, application/xml, text/xml, */*" },
+    signal:  AbortSignal.timeout(15000),
+    headers: { ...BROWSER_HEADERS, "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*" },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const xml  = sanitizeFeedXml(await res.text());
   const feed = await directParser.parseString(xml);
   return (feed.items ?? []).slice(0, 20).map(item => {
     const raw     = item;
-    const content = item.content || raw["content:encoded"] || "";
-    const desc    = item.summary || item.contentSnippet || content || "";
+    const content = item.content || raw["content:encoded"] || item.atomContent || "";
+    const desc    = item.summary || item.contentSnippet || item.atomSummary || content || "";
     let imageUrl  = null;
     const enc     = item.enclosure;
     if (enc?.url?.startsWith("http") && (enc.type?.startsWith("image") || /\.(jpe?g|png|webp|gif)/i.test(enc.url))) {
@@ -312,9 +324,12 @@ async function fetchFeedViaProxy(feedUrl) {
   const keyParam = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : "";
   const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=20${keyParam}`;
   const res      = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`rss2json HTTP ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`rss2json HTTP ${res.status}: ${body.slice(0, 200)}`);
+  }
   const data = await res.json();
-  if (data.status !== "ok") throw new Error(`rss2json status: ${data.status}`);
+  if (data.status !== "ok") throw new Error(`rss2json status: ${data.status} — ${data.message ?? ""}`);
   return (data.items ?? []).map(item => ({
     title:       item.title ?? "",
     link:        item.link  ?? "",
