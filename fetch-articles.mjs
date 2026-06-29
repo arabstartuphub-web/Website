@@ -137,18 +137,63 @@ const CATEGORY_KEYWORDS = {
   "Ecosystem":    ["hackathon","meetup","event","summit","conference","workshop","pitch competition","partnership","ecosystem","community","report","index","ranking"],
 };
 
-const GCC_TERMS = ["saudi","uae","dubai","abu dhabi","kuwait","qatar","bahrain","oman","gulf","gcc","mena","middle east","arab","riyadh","doha","manama","muscat","sharjah","ksa","neom","vision 2030","hub71","flat6labs","taqadam","misk","badir","wa'ed","waed","in5","dtec","astrolabs","tamkeen","qstp","monsha'at","monshaat","otf"];
+const GCC_TERMS = [
+  "saudi arabia","saudi","ksa","riyadh","jeddah","dammam",
+  "uae","dubai","abu dhabi","sharjah","ajman","emirati",
+  "kuwait","kuwaiti","qatar","doha","qatari",
+  "bahrain","manama","bahraini","oman","muscat","omani",
+  "gcc","neom","vision 2030","vision2030",
+  "hub71","flat6labs","taqadam","misk hub","misk","badir",
+  "wa'ed","waed","in5","dtec","astrolabs","tamkeen","qstp",
+  "monsha'at","monshaat","otf","difc","adgm",
+];
+const NON_GCC_COUNTRIES = [
+  "egypt","egyptian","cairo","iran","iranian","tehran",
+  "israel","israeli","tel aviv","lebanon","beirut","lebanese",
+  "iraq","iraqi","baghdad","syria","syrian","turkey","turkish",
+  "jordan","jordanian","amman","morocco","moroccan","algeria",
+  "tunisia","libya","libyan","sudan","sudanese","yemen","yemeni",
+];
 
-const STARTUP_KEYWORDS = ["startup","startups","founder","co-founder","entrepreneur","funding","funded","investment","investor","venture capital","seed round","series a","series b","series c","raise","raised","grant","equity","capital","accelerator","incubator","cohort","demo day","launch","launches","acquisition","acquires","merger","ipo","unicorn","valuation","fintech","healthtech","edtech","proptech","saas","deeptech","web3","innovation","ecosystem","pitch","hackathon"];
+const STARTUP_KEYWORDS = [
+  "startup","startups","founder","co-founder","cofounder",
+  "entrepreneur","entrepreneurship","early-stage",
+  "venture capital","vc fund","vc-backed",
+  "seed round","pre-seed","series a","series b","series c","series d",
+  "funding round","angel round","angel investor",
+  "accelerator","incubator","cohort","batch","demo day",
+  "call for startups","applications open","launchpad",
+  "startup program","startup competition","startup studio",
+  "fintech","healthtech","edtech","proptech","agritech",
+  "saas","deeptech","web3","ai startup","tech startup",
+  "unicorn","valuation","scale-up","scaleup","product launch",
+  "acqui-hire","hub71","flat6labs","taqadam","misk hub",
+  "y combinator","techstars","500 global",
+  "pitch competition","hackathon",
+];
+const HARD_BLOCK_SIGNALS = [
+  "helicopter crash","killed","airstrike","missile","drone strike",
+  "ceasefire","retaliation","warship","crude oil","oil price",
+  "gold price","silver price","bitcoin","crypto market",
+  "precious metal","commodity","barrel","brent crude",
+  "interest rate","treasury yield","monetary policy",
+  "privatization","state-owned","government-owned",
+  "ipo program","stock exchange listing","capital market",
+];
 
 // ─── Classification helpers ───────────────────────────────────────────────────
 function isGCCRelevant(text) {
-  const lower = text.toLowerCase();
-  return GCC_TERMS.some(t => lower.includes(t));
+  const lower   = text.toLowerCase();
+  const gccHits = GCC_TERMS.filter(t => lower.includes(t)).length;
+  if (gccHits === 0) return false;
+  const nonGccHit = NON_GCC_COUNTRIES.some(c => lower.includes(c));
+  if (nonGccHit && gccHits === 0) return false;
+  return true;
 }
 
 function isStartupRelevant(text) {
   const lower = text.toLowerCase();
+  if (HARD_BLOCK_SIGNALS.some(s => lower.includes(s))) return false;
   return STARTUP_KEYWORDS.some(kw => lower.includes(kw));
 }
 
@@ -302,6 +347,11 @@ async function fetchAndStoreFeed(feed) {
       const sourceUrl = item.link ?? "";
       const rawDate   = item.pubDate ? new Date(item.pubDate) : null;
       const publishedAt = rawDate && !isNaN(rawDate.getTime()) ? rawDate : new Date();
+
+      // Skip articles older than 30 days — they'd be pruned immediately anyway
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      if (publishedAt < thirtyDaysAgo) continue;
       if (!title || !sourceUrl) continue;
       const combined = `${title} ${summary}`;
       if (!feed.isTrustedGCC && !isGCCRelevant(combined)) continue;
@@ -339,14 +389,29 @@ async function fetchAndStoreFeed(feed) {
 
 // ─── Prune old articles ───────────────────────────────────────────────────────
 async function pruneOldArticles() {
+  // Use created_at (when WE stored it) not published_at (the feed's date).
+  // This prevents freshly-inserted articles from being immediately pruned
+  // because their feed pubDate happens to be old.
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 30);
-  await db.execute(sql`DELETE FROM articles WHERE is_featured = false AND published_at < ${cutoff.toISOString()}`);
+  await db.execute(sql`
+    DELETE FROM articles
+    WHERE is_featured = false
+      AND created_at < ${cutoff.toISOString()}
+  `);
   const countRes = await db.execute(sql`SELECT COUNT(*) as count FROM articles`);
   const total    = Number(countRes[0]?.count ?? 0);
-  if (total > 300) {
-    await db.execute(sql`DELETE FROM articles WHERE id IN (SELECT id FROM articles WHERE is_featured = false ORDER BY published_at ASC LIMIT ${total - 300})`);
-    console.log(`🗑  Pruned to 300 articles`);
+  const MAX      = 500; // raised from 300 — gives more buffer before pruning fresh articles
+  if (total > MAX) {
+    await db.execute(sql`
+      DELETE FROM articles WHERE id IN (
+        SELECT id FROM articles
+        WHERE is_featured = false
+        ORDER BY created_at ASC
+        LIMIT ${total - MAX}
+      )
+    `);
+    console.log(`🗑  Pruned to ${MAX} articles`);
   }
 }
 
