@@ -8,49 +8,43 @@ interface Feed {
   sourceName: string;
   isTrustedGCC?: boolean;
   forceCountry?: string;
-  proxyOnly?: boolean;  // skip direct fetch — site blocks scrapers (403)
+  proxyOnly?: boolean;
 }
 
-// ─── RSS Feeds — Saudi Arabia & GCC focused ───────────────────────────────────
 const FEEDS: Feed[] = [
-  // ── Priority Tier — core GCC startup/VC media, fetched first ──────────────────
   { url: "https://wamda.com/feed",                                   sourceName: "Wamda",                 isTrustedGCC: true },
   { url: "https://menabytes.com/feed/",                              sourceName: "MENAbytes",             isTrustedGCC: true },
   { url: "https://www.arabianbusiness.com/rss",                      sourceName: "Arabian Business",      isTrustedGCC: true,  proxyOnly: true },
   { url: "https://techcrunch.com/tag/middle-east/feed/",             sourceName: "TechCrunch MENA",       isTrustedGCC: true },
-  { url: "https://techcrunch.com/tag/saudi-arabia/feed/",            sourceName: "TechCrunch Saudi",      isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  { url: "https://techcrunch.com/tag/dubai/feed/",                   sourceName: "TechCrunch Dubai",      isTrustedGCC: true, forceCountry: "UAE" },
+  { url: "https://techcrunch.com/tag/saudi-arabia/feed/",            sourceName: "TechCrunch Saudi",      isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://techcrunch.com/tag/dubai/feed/",                   sourceName: "TechCrunch Dubai",      isTrustedGCC: true,  forceCountry: "UAE" },
   { url: "https://forbesmiddleeast.com/feed/",                       sourceName: "Forbes Middle East",    isTrustedGCC: true,  proxyOnly: true },
   { url: "https://gulfbusiness.com/feed/",                           sourceName: "Gulf Business",         isTrustedGCC: true },
   { url: "https://www.zawya.com/en/rss/startups",                    sourceName: "Zawya Startups",        isTrustedGCC: true,  proxyOnly: true },
   { url: "https://www.entrepreneur.com/en-ae/rss",                   sourceName: "Entrepreneur ME",       isTrustedGCC: true },
   { url: "https://www.khaleejtimes.com/feed/business",               sourceName: "Khaleej Times",         isTrustedGCC: true,  proxyOnly: true },
-  // ── Saudi Arabia ─────────────────────────────────────────────────────────────
-  { url: "https://www.argaam.com/en/rss",                            sourceName: "Argaam",                isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  { url: "https://www.arabnews.com/taxonomy/term/10251/feed",        sourceName: "Arab News Business",    isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  { url: "https://www.arabnews.com/taxonomy/term/4022/feed",         sourceName: "Arab News Tech",        isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  { url: "https://www.spa.gov.sa/rss/en",                            sourceName: "Saudi Press Agency",    isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  { url: "https://saudistartups.org/feed/",                          sourceName: "Saudi Startups",        isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  { url: "https://miskhub.com/feed/",                                sourceName: "Misk Hub",              isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  { url: "https://monshaat.gov.sa/en/rss.xml",                       sourceName: "Monsha'at",             isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  { url: "https://waed.com/feed/",                                   sourceName: "Wa'ed Aramco Ventures", isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  { url: "https://www.badir.com.sa/feed",                            sourceName: "Badir Program",         isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  { url: "https://www.taqadam.org/feed/",                            sourceName: "TAQADAM KAUST",         isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  { url: "https://www.startupgrind.com/blog/feed/?tag=saudi",        sourceName: "Startup Grind Saudi",   isTrustedGCC: true, forceCountry: "Saudi Arabia" },
-  // ── UAE ──────────────────────────────────────────────────────────────────────
-  { url: "https://hub71.com/news/feed/",                             sourceName: "Hub71",                 isTrustedGCC: true, forceCountry: "UAE" },
+  { url: "https://www.argaam.com/en/rss",                            sourceName: "Argaam",                isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.arabnews.com/taxonomy/term/10251/feed",        sourceName: "Arab News Business",    isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.arabnews.com/taxonomy/term/4022/feed",         sourceName: "Arab News Tech",        isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.spa.gov.sa/rss/en",                            sourceName: "Saudi Press Agency",    isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://saudistartups.org/feed/",                          sourceName: "Saudi Startups",        isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://miskhub.com/feed/",                                sourceName: "Misk Hub",              isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://monshaat.gov.sa/en/rss.xml",                       sourceName: "Monsha'at",             isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://waed.com/feed/",                                   sourceName: "Wa'ed Aramco Ventures", isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.badir.com.sa/feed",                            sourceName: "Badir Program",         isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.taqadam.org/feed/",                            sourceName: "TAQADAM KAUST",         isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://www.startupgrind.com/blog/feed/?tag=saudi",        sourceName: "Startup Grind Saudi",   isTrustedGCC: true,  forceCountry: "Saudi Arabia" },
+  { url: "https://hub71.com/news/feed/",                             sourceName: "Hub71",                 isTrustedGCC: true,  forceCountry: "UAE" },
   { url: "https://flat6labs.com/blog/feed/",                         sourceName: "Flat6Labs",             isTrustedGCC: true },
-  { url: "https://astrolabs.com/blog/feed/",                         sourceName: "AstroLabs",             isTrustedGCC: true, forceCountry: "UAE" },
-  { url: "https://www.in5.ae/news/feed/",                            sourceName: "In5 Dubai",             isTrustedGCC: true, forceCountry: "UAE" },
-  { url: "https://dtec.ae/feed/",                                    sourceName: "Dtec Dubai",            isTrustedGCC: true, forceCountry: "UAE" },
-  { url: "https://www.startupgrind.com/blog/feed/?tag=dubai",        sourceName: "Startup Grind Dubai",   isTrustedGCC: true, forceCountry: "UAE" },
+  { url: "https://astrolabs.com/blog/feed/",                         sourceName: "AstroLabs",             isTrustedGCC: true,  forceCountry: "UAE" },
+  { url: "https://www.in5.ae/news/feed/",                            sourceName: "In5 Dubai",             isTrustedGCC: true,  forceCountry: "UAE" },
+  { url: "https://dtec.ae/feed/",                                    sourceName: "Dtec Dubai",            isTrustedGCC: true,  forceCountry: "UAE" },
+  { url: "https://www.startupgrind.com/blog/feed/?tag=dubai",        sourceName: "Startup Grind Dubai",   isTrustedGCC: true,  forceCountry: "UAE" },
   { url: "https://www.brinc.io/blog/rss.xml",                        sourceName: "Brinc Accelerator",     isTrustedGCC: true },
-  // ── Qatar, Bahrain, Kuwait, Oman ─────────────────────────────────────────────
-  { url: "https://startupbahrain.com/feed/",                         sourceName: "Startup Bahrain",       isTrustedGCC: true, forceCountry: "Bahrain" },
-  { url: "https://www.tamkeen.bh/news/feed/",                        sourceName: "Tamkeen Bahrain",       isTrustedGCC: true, forceCountry: "Bahrain" },
-  { url: "https://www.qstp.org.qa/news/feed/",                       sourceName: "QSTP Qatar",            isTrustedGCC: true, forceCountry: "Qatar" },
-  { url: "https://otf.om/feed/",                                     sourceName: "Oman Technology Fund",  isTrustedGCC: true, forceCountry: "Oman" },
-  // ── Events & Global ──────────────────────────────────────────────────────────
+  { url: "https://startupbahrain.com/feed/",                         sourceName: "Startup Bahrain",       isTrustedGCC: true,  forceCountry: "Bahrain" },
+  { url: "https://www.tamkeen.bh/news/feed/",                        sourceName: "Tamkeen Bahrain",       isTrustedGCC: true,  forceCountry: "Bahrain" },
+  { url: "https://www.qstp.org.qa/news/feed/",                       sourceName: "QSTP Qatar",            isTrustedGCC: true,  forceCountry: "Qatar" },
+  { url: "https://otf.om/feed/",                                     sourceName: "Oman Technology Fund",  isTrustedGCC: true,  forceCountry: "Oman" },
   { url: "https://500.co/feed/",                                     sourceName: "500 Global",            isTrustedGCC: true },
   { url: "https://www.techstars.com/feed",                           sourceName: "Techstars",             isTrustedGCC: false },
   { url: "https://sifted.eu/rss",                                    sourceName: "Sifted",                isTrustedGCC: false },
@@ -99,33 +93,25 @@ const GCC_TERMS = [
   "dtec", "astrolabs", "tamkeen", "qstp", "monsha'at", "monshaat", "otf",
 ];
 
-function isGCCRelevant(text: string): boolean {
-  return GCC_TERMS.some((t) => text.toLowerCase().includes(t));
-}
-
-// ─── Startup relevance filter — blocks non-startup content ───────────────────
-// Any article (from any source) must match at least one of these to be stored.
 const STARTUP_KEYWORDS = [
-  // Core startup terms
   "startup", "startups", "founder", "co-founder", "cofounder", "entrepreneur", "entrepreneurship",
-  // Funding & investment
   "funding", "funded", "investment", "investor", "venture capital", "vc fund",
   "seed round", "pre-seed", "series a", "series b", "series c", "series d",
   "raise", "raised", "grant", "equity", "capital",
-  // Programs & support
   "accelerator", "incubator", "cohort", "batch", "demo day", "program",
   "call for startups", "applications open", "apply now", "launchpad",
-  // Company events
   "launch", "launches", "launched", "unveiled", "product launch", "goes live",
   "acquisition", "acquires", "acquired", "merger", "ipo", "listing", "exit",
   "unicorn", "valuation", "scale-up", "scaleup",
-  // Tech sectors
   "fintech", "healthtech", "edtech", "proptech", "agritech", "saas", "deeptech",
   "web3", "ai startup", "tech company", "tech startup",
-  // Ecosystem signals
   "innovation", "ecosystem", "hub71", "flat6labs", "taqadam", "misk hub",
   "pitch", "pitching", "hackathon", "demo", "startup competition",
 ];
+
+function isGCCRelevant(text: string): boolean {
+  return GCC_TERMS.some((t) => text.toLowerCase().includes(t));
+}
 
 function isStartupRelevant(text: string): boolean {
   const lower = text.toLowerCase();
@@ -149,29 +135,31 @@ function detectCategory(text: string): string {
   return "Ecosystem";
 }
 
-// ─── Auto-cleanup: keep DB lean (max 300 articles, safe for Neon free tier) ──
-// Articles older than 30 days are also deleted regardless of count.
+// ─── Auto-cleanup ─────────────────────────────────────────────────────────────
+// IMPORTANT: Uses created_at (when WE stored it) NOT published_at (the feed's
+// date). This prevents freshly-inserted articles being immediately pruned
+// because their RSS pubDate happens to be older than 30 days.
 async function pruneOldArticles(): Promise<void> {
   try {
-    // 1. Always delete articles older than 30 days (keeps Neon storage tiny)
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 30);
-    const ageResult = await db.execute(sql`
-      DELETE FROM articles
-      WHERE is_featured = false AND published_at < ${cutoff.toISOString()}
-    `);
-    logger.info({ cutoff: cutoff.toISOString() }, "Pruned articles older than 30 days");
 
-    // 2. If still over 300, drop oldest non-featured to get back to 300
+    await db.execute(sql`
+      DELETE FROM articles
+      WHERE is_featured = false
+        AND created_at < ${cutoff.toISOString()}
+    `);
+    logger.info({ cutoff: cutoff.toISOString() }, "Pruned articles older than 30 days (by created_at)");
+
     const countResult = await db.execute(sql`SELECT COUNT(*) as count FROM articles`);
     const total = Number(countResult[0]?.count ?? 0);
-    const MAX_ARTICLES = 300;
+    const MAX_ARTICLES = 500;
     if (total > MAX_ARTICLES) {
       const deleteCount = total - MAX_ARTICLES;
       await db.execute(sql`
         DELETE FROM articles WHERE id IN (
           SELECT id FROM articles WHERE is_featured = false
-          ORDER BY published_at ASC LIMIT ${deleteCount}
+          ORDER BY created_at ASC LIMIT ${deleteCount}
         )
       `);
       logger.info({ deleted: deleteCount, remaining: MAX_ARTICLES }, "Pruned old articles to cap");
@@ -194,7 +182,6 @@ interface Rss2JsonItem {
   pubDate:     string;
   description: string;
   content:     string;
-  // rss2json exposes the image in multiple places depending on the feed
   thumbnail?:       string;
   enclosure?:       Rss2JsonEnclosure;
   "media:content"?: { url?: string };
@@ -206,7 +193,6 @@ interface Rss2JsonResponse {
   items: Rss2JsonItem[];
 }
 
-// ─── Normalized item shape — both rss2json and direct-parse map into this ────
 interface NormalizedItem {
   title:       string;
   link:        string;
@@ -216,40 +202,24 @@ interface NormalizedItem {
   imageUrl:    string | null;
 }
 
-// ─── Shared: scrape an image URL out of raw HTML content ─────────────────────
 function extractImageFromHtml(html: string): string | null {
   if (!html) return null;
-
-  // <img src="...">
   const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i);
   if (imgMatch?.[1] && imgMatch[1].startsWith("http")) return imgMatch[1];
-
-  // Lazy-load <img data-src="..."> (Wamda, MENAbytes use this pattern)
   const dataSrcMatch = html.match(/<img[^>]+data-src=["']([^"']+)["']/i);
   if (dataSrcMatch?.[1] && dataSrcMatch[1].startsWith("http")) return dataSrcMatch[1];
-
-  // srcset — grab first URL
   const srcsetMatch = html.match(/srcset=["']([^"'\s,]+)/i);
   if (srcsetMatch?.[1] && srcsetMatch[1].startsWith("http")) return srcsetMatch[1];
-
-  // og:image meta embedded in feed content
   const ogMatch = html.match(/property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
                 || html.match(/content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
   if (ogMatch?.[1] && ogMatch[1].startsWith("http")) return ogMatch[1];
-
-  // media:content url attribute
   const mediaMatch = html.match(/media:content[^>]+url=["']([^"']+)["']/i);
   if (mediaMatch?.[1] && mediaMatch[1].startsWith("http")) return mediaMatch[1];
-
   return null;
 }
 
-// ─── Extract the best image URL from an rss2json item ────────────────────────
 function extractImageUrl(item: Rss2JsonItem): string | null {
-  // 1. rss2json thumbnail (most common for MENA feeds)
   if (item.thumbnail && item.thumbnail.startsWith("http")) return item.thumbnail;
-
-  // 2. <enclosure> tag (common on Arab News, Forbes ME, Gulf Business)
   const enc = item.enclosure;
   if (enc) {
     const encUrl = enc.link || enc.url;
@@ -257,22 +227,9 @@ function extractImageUrl(item: Rss2JsonItem): string | null {
       return encUrl;
     }
   }
-
-  // 3. Scrape from HTML content/description
   return extractImageFromHtml(item.content || item.description || "");
 }
 
-// ─── Fetch og:image from the article page when RSS has no image ──────────────
-// Many MENA feeds (Forbes ME, Arab News, Zawya, Khaleej Times) strip images
-// from their RSS. We fetch the actual article page and pull the og:image or
-// twitter:image meta tag — this is the same image the article shows on site.
-// Fallback order (each tier only runs if the previous found nothing):
-//   1. <meta property="og:image" content="...">   (standard, most reliable)
-//   2. <meta name="og:image" content="...">        (non-standard but seen in the wild)
-//   3. <meta name="twitter:image" content="...">
-//   4. First substantial <img> inside the article body — last resort only,
-//      used when a site provides no social meta tags at all.
-// 5 s timeout so the daily run stays fast; silently skips on any error.
 async function fetchOgImage(articleUrl: string): Promise<string | null> {
   try {
     const res = await fetch(articleUrl, {
@@ -281,29 +238,18 @@ async function fetchOgImage(articleUrl: string): Promise<string | null> {
     });
     if (!res.ok) return null;
     const html = await res.text();
-
-    // 1. og:image — standard, used by Forbes ME, TechCrunch, Wamda, MENAbytes
     const ogA = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
     if (ogA?.[1]?.startsWith("http")) return ogA[1];
     const ogB = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
     if (ogB?.[1]?.startsWith("http")) return ogB[1];
-
-    // 2. og:image via name= instead of property= (non-standard, some CMSs use this)
     const ogNameA = html.match(/<meta[^>]+name=["']og:image["'][^>]+content=["']([^"']+)["']/i);
     if (ogNameA?.[1]?.startsWith("http")) return ogNameA[1];
     const ogNameB = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']og:image["']/i);
     if (ogNameB?.[1]?.startsWith("http")) return ogNameB[1];
-
-    // 3. twitter:image — fallback used by Arab News, Gulf Business, Arabianbusiness
     const twA = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
     if (twA?.[1]?.startsWith("http")) return twA[1];
     const twB = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
     if (twB?.[1]?.startsWith("http")) return twB[1];
-
-    // 4. Last resort — first substantial <img> within the article body.
-    // Only reached if the page has NO social meta tags at all (rare, but
-    // happens on some smaller GCC ecosystem sites). Restricts the search to
-    // <article>/<main> if present, to avoid header logos and nav icons.
     const bodyMatch = html.match(/<article[\s\S]*?<\/article>/i) || html.match(/<main[\s\S]*?<\/main>/i);
     const body = bodyMatch?.[0] ?? html;
     const imgTags = body.match(/<img[^>]+>/gi) ?? [];
@@ -311,26 +257,17 @@ async function fetchOgImage(articleUrl: string): Promise<string | null> {
       const srcMatch = tag.match(/(?:data-)?src=["']([^"']+)["']/i);
       const src = srcMatch?.[1];
       if (!src || !src.startsWith("http")) continue;
-      // Skip obvious non-content images: tiny icons, logos, tracking pixels, SVGs
       if (/logo|icon|avatar|spacer|pixel|sprite|\.svg(\?|$)/i.test(src)) continue;
       const widthMatch = tag.match(/width=["']?(\d+)/i);
       if (widthMatch && Number(widthMatch[1]) < 200) continue;
       return src;
     }
-
     return null;
   } catch {
     return null;
   }
 }
 
-// ─── Fallback: RSS2JSON Proxy Fetcher ────────────────────────────────────────
-// Only used when fetchFeedDirect (below, now primary) fails — e.g. feeds that
-// are XML-malformed or behind bot-blocking, where rss2json's server-side
-// fetch sometimes succeeds where ours doesn't. Setting RSS2JSON_API_KEY in
-// Render environment variables gives a dedicated quota; without it, anonymous
-// requests share a tiny global quota and are easily rate-limited — since this
-// is now a rarely-used fallback, an API key is optional.
 async function fetchFeedViaProxy(feedUrl: string): Promise<NormalizedItem[]> {
   const apiKey = process.env.RSS2JSON_API_KEY ?? "";
   const keyParam = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : "";
@@ -339,7 +276,6 @@ async function fetchFeedViaProxy(feedUrl: string): Promise<NormalizedItem[]> {
   if (!res.ok) throw new Error(`rss2json returned ${res.status}`);
   const data = await res.json() as Rss2JsonResponse;
   if (data.status !== "ok") throw new Error(`rss2json status: ${data.status}`);
-
   return (data.items ?? []).map((item) => ({
     title:       item.title ?? "",
     link:        item.link ?? "",
@@ -350,21 +286,12 @@ async function fetchFeedViaProxy(feedUrl: string): Promise<NormalizedItem[]> {
   }));
 }
 
-// ─── Primary: fetch & parse the raw RSS/Atom XML directly ────────────────────
-// ─── Sanitize raw XML before parsing — fixes malformed entity errors ──────────
-// Many MENA feeds (MENAbytes, Arab News, Gulf Business) contain raw & ampersands
-// or broken HTML entities that strict SAX parsers reject. We pre-clean the XML
-// string before handing it to rss-parser.
 function sanitizeFeedXml(xml: string): string {
   return xml
-    // Replace bare & not followed by a valid entity reference with &amp;
     .replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[\da-fA-F]+);)/g, "&amp;")
-    // Strip control characters (except tab, newline, carriage return)
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 }
 
-// Free, unlimited, no third-party dependency. Used for ~90% of feeds. Falls
-// back to fetchFeedViaProxy (rss2json) only on failure.
 const directParser = new Parser({
   timeout: 15000,
   headers: {
@@ -372,13 +299,12 @@ const directParser = new Parser({
     "Accept": "application/rss+xml, application/xml, text/xml, */*",
   },
   xml2js: {
-    strict: false,   // tolerate malformed XML instead of throwing
+    strict: false,
     normalize: true,
   },
 });
 
 async function fetchFeedDirect(feedUrl: string): Promise<NormalizedItem[]> {
-  // Fetch raw XML ourselves so we can sanitize before parsing
   const res = await fetch(feedUrl, {
     signal: AbortSignal.timeout(15000),
     headers: {
@@ -394,11 +320,8 @@ async function fetchFeedDirect(feedUrl: string): Promise<NormalizedItem[]> {
   return (feed.items ?? []).slice(0, 20).map((item) => {
     const raw = item as unknown as Record<string, unknown>;
     const contentEncoded = typeof raw["content:encoded"] === "string" ? raw["content:encoded"] as string : undefined;
-
     const description = item.summary || item.contentSnippet || item.content || "";
     const content     = item.content || contentEncoded || description;
-
-    // rss-parser exposes enclosure/media tags directly on each item
     let imageUrl: string | null = null;
     const enc = item.enclosure;
     if (enc?.url && enc.url.startsWith("http") && (enc.type?.startsWith("image") || /\.(jpe?g|png|webp|gif)/i.test(enc.url))) {
@@ -409,10 +332,7 @@ async function fetchFeedDirect(feedUrl: string): Promise<NormalizedItem[]> {
       const mediaUrl = mediaContent?.$?.url;
       if (mediaUrl && mediaUrl.startsWith("http")) imageUrl = mediaUrl;
     }
-    if (!imageUrl) {
-      imageUrl = extractImageFromHtml(content || description);
-    }
-
+    if (!imageUrl) imageUrl = extractImageFromHtml(content || description);
     return {
       title:       item.title ?? "",
       link:        item.link ?? "",
@@ -424,12 +344,6 @@ async function fetchFeedDirect(feedUrl: string): Promise<NormalizedItem[]> {
   });
 }
 
-// ─── Combined fetch — direct XML first, rss2json as fallback ────────────────
-// Direct parsing is free, unlimited, and has no third-party dependency, so it
-// covers the vast majority of feeds. rss2json is kept as a fallback for feeds
-// that are XML-malformed or behind bot-blocking — rss2json's server-side
-// fetch sometimes succeeds where ours doesn't.
-// proxyOnly=true skips direct fetch entirely for known 403-blocking sites.
 async function fetchFeedItems(feed: Feed): Promise<NormalizedItem[]> {
   if (!feed.proxyOnly) {
     try {
@@ -452,6 +366,10 @@ export async function fetchAndStoreFeed(feed: Feed): Promise<{ inserted: number;
   try {
     const items = await fetchFeedItems(feed);
 
+    // Articles older than 30 days would be pruned immediately — skip them
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
     for (const item of items) {
       const title     = item.title?.trim() ?? "";
       const summary   = (item.description || item.content || "")
@@ -464,11 +382,13 @@ export async function fetchAndStoreFeed(feed: Feed): Promise<{ inserted: number;
 
       if (!title || !sourceUrl) continue;
 
+      // ── Skip articles older than 30 days — they'd be pruned immediately ────
+      if (publishedAt < thirtyDaysAgo) continue;
+
       const combined = `${title} ${summary}`;
       if (!feed.isTrustedGCC && !isGCCRelevant(combined)) continue;
       if (!isStartupRelevant(combined)) continue;
 
-      // Skip duplicates
       const existing = await db
         .select({ id: articlesTable.id })
         .from(articlesTable)
@@ -479,7 +399,6 @@ export async function fetchAndStoreFeed(feed: Feed): Promise<{ inserted: number;
       const country  = detectCountry(combined, feed.forceCountry);
       const category = detectCategory(combined);
 
-      // ── Extract image: feed item first, then og:image from article page ───────
       let imageUrl = item.imageUrl;
       if (!imageUrl && sourceUrl) {
         imageUrl = await fetchOgImage(sourceUrl);
@@ -490,7 +409,7 @@ export async function fetchAndStoreFeed(feed: Feed): Promise<{ inserted: number;
         summary:    (summary || title).slice(0, 1000),
         sourceUrl,
         sourceName: feed.sourceName,
-        imageUrl:   imageUrl ?? null,   // ← stored per-article now
+        imageUrl:   imageUrl ?? null,
         category,
         country,
         tags:       [],
@@ -520,7 +439,6 @@ export async function runDailyFetch(): Promise<void> {
     const { inserted, error } = await fetchAndStoreFeed(feed);
     total += inserted;
     feedStats[feed.sourceName] = { inserted, error };
-    // Respect rss2json's 1 request/second rate limit (used as fallback)
     await new Promise((r) => setTimeout(r, 1100));
   }
   logger.info({ total }, "Daily fetch complete");
@@ -534,25 +452,24 @@ export async function runDailyFetch(): Promise<void> {
     );
     await generateDailyDigest();
 
-    // ── Record this run for /api/status and feed-health tracking ──────────────
     await db.insert(fetchRunsTable).values({
       startedAt,
-      finishedAt: new Date(),
-      success: true,
+      finishedAt:       new Date(),
+      success:          true,
       articlesInserted: total,
       feedStats,
-      error: null,
+      error:            null,
     });
   } catch (err) {
     logger.error({ err }, "Daily fetch post-processing failed");
     try {
       await db.insert(fetchRunsTable).values({
         startedAt,
-        finishedAt: new Date(),
-        success: false,
+        finishedAt:       new Date(),
+        success:          false,
         articlesInserted: total,
         feedStats,
-        error: err instanceof Error ? err.message : String(err),
+        error:            err instanceof Error ? err.message : String(err),
       });
     } catch (recordErr) {
       logger.warn({ err: recordErr }, "Failed to record failed fetch run");
@@ -563,26 +480,18 @@ export async function runDailyFetch(): Promise<void> {
   await logDeadFeedsWeekly();
 }
 
-// ─── Weekly feed-health summary ──────────────────────────────────────────────
-// Once a week, log a summary of per-feed insert totals over the last 7 days so
-// dead/silent feeds (e.g. shaky government domains) surface instead of quietly
-// contributing nothing for months.
+// ─── Weekly feed-health summary ───────────────────────────────────────────────
 async function logDeadFeedsWeekly(): Promise<void> {
-  // Only run on Sundays to avoid spamming logs on every fetch (every 6h).
   if (new Date().getUTCDay() !== 0) return;
-
   try {
     const since = new Date();
     since.setDate(since.getDate() - 7);
-
     const runs = await db
       .select({ feedStats: fetchRunsTable.feedStats })
       .from(fetchRunsTable)
       .where(gte(fetchRunsTable.startedAt, since));
-
     const totals: Record<string, { inserted: number; errors: number }> = {};
     for (const feed of FEEDS) totals[feed.sourceName] = { inserted: 0, errors: 0 };
-
     for (const run of runs) {
       const stats = run.feedStats ?? {};
       for (const [feedName, stat] of Object.entries(stats)) {
@@ -591,14 +500,12 @@ async function logDeadFeedsWeekly(): Promise<void> {
         if (stat.error) totals[feedName]!.errors += 1;
       }
     }
-
     const deadFeeds = Object.entries(totals)
       .filter(([, t]) => t.inserted === 0)
       .map(([name, t]) => ({ feed: name, errors: t.errors }));
-
     logger.info({ totals, runsConsidered: runs.length }, "Weekly feed-health summary");
     if (deadFeeds.length > 0) {
-      logger.warn({ deadFeeds }, "Feeds with zero inserts in the last 7 days — check for dead/blocked sources");
+      logger.warn({ deadFeeds }, "Feeds with zero inserts in the last 7 days");
     }
   } catch (err) {
     logger.warn({ err }, "Failed to compute weekly feed-health summary");
